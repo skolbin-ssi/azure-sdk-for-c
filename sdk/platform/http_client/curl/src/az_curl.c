@@ -4,13 +4,18 @@
 #include <az_http.h>
 #include <az_http_internal.h>
 #include <az_http_transport.h>
+#include <az_platform_internal.h> // need to use mutex to prevent multithread init issue
 #include <az_span.h>
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include <curl/curl.h>
 
 #include <_az_cfg.h>
+
+static az_platform_mtx az_curl_mtx;
+static volatile bool az_curl_double_check_locking = false;
 
 /*Copying AZ_CONTRACT on purpose from AZ_CORE because 3rd parties can define this and should not
  * depend on internal CORE headers */
@@ -75,6 +80,32 @@ static AZ_NODISCARD az_result _az_http_client_curl_code_to_result(CURLcode code)
 
 AZ_NODISCARD AZ_INLINE az_result _az_http_client_curl_init(CURL** out)
 {
+
+  // curl global init. Must be called just one time and from one thread only
+  // If the double check is locked, then global init was already called
+  if (!az_curl_double_check_locking)
+  {
+    // lock next code for multi-thread safe
+    AZ_RETURN_IF_FAILED(az_platform_mtx_lock(&az_curl_mtx));
+
+    // check double-check locking state
+    if (!az_curl_double_check_locking)
+    {
+      // init global curl state
+      if (curl_global_init(CURL_GLOBAL_ALL) != 0)
+      {
+        // Non-zero means something went wrong
+        return AZ_ERROR_HTTP_PLATFORM;
+      }
+      // update locking flag
+      az_curl_double_check_locking = true;
+    }
+
+    // release lock
+    AZ_RETURN_IF_FAILED(az_platform_mtx_unlock(&az_curl_mtx));
+  }
+
+  // Init a curl operation
   *out = curl_easy_init();
   return AZ_OK;
 }
@@ -109,7 +140,7 @@ _az_span_append_header_to_buffer(az_span writable_buffer, az_pair header, az_spa
   writable_buffer = az_span_append(writable_buffer, header.key);
   writable_buffer = az_span_append(writable_buffer, separator);
   writable_buffer = az_span_append(writable_buffer, header.value);
-  writable_buffer = az_span_append_uint8(writable_buffer, '0');
+  writable_buffer = az_span_append_uint8(writable_buffer, 0);
 
   return AZ_OK;
 }
@@ -209,7 +240,7 @@ _az_http_client_curl_append_url(az_span writable_buffer, az_span url_from_reques
   AZ_RETURN_IF_NOT_ENOUGH_CAPACITY(writable_buffer, required_length);
 
   writable_buffer = az_span_append(writable_buffer, url_from_request);
-  writable_buffer = az_span_append_uint8(writable_buffer, '0');
+  writable_buffer = az_span_append_uint8(writable_buffer, 0);
 
   return AZ_OK;
 }
@@ -538,8 +569,7 @@ static AZ_NODISCARD az_result _az_http_client_curl_send_request_impl_process(
   {
     AZ_RETURN_IF_NOT_ENOUGH_CAPACITY(response->_internal.http_response, 1);
 
-    response->_internal.http_response
-        = az_span_append_uint8(response->_internal.http_response, '0');
+    response->_internal.http_response = az_span_append_uint8(response->_internal.http_response, 0);
   }
   return result;
 }
@@ -558,6 +588,8 @@ az_http_client_send_request(_az_http_request* p_request, az_http_response* p_res
   AZ_PRECONDITION_NOT_NULL(p_response);
 
   CURL* p_curl = NULL;
+  // init mtx
+  AZ_RETURN_IF_FAILED(az_platform_mtx_init(&az_curl_mtx));
 
   // init curl
   AZ_RETURN_IF_FAILED(_az_http_client_curl_init(&p_curl));
@@ -568,6 +600,9 @@ az_http_client_send_request(_az_http_request* p_request, az_http_response* p_res
 
   // no matter if error or not, call curl done before returning to let curl clean everything
   AZ_RETURN_IF_FAILED(_az_http_client_curl_done(&p_curl));
+
+  // destroy mtx
+  az_platform_mtx_destroy(&az_curl_mtx);
 
   return process_result;
 }
