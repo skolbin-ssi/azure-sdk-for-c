@@ -10,10 +10,15 @@ option(BUILD_CURL_TRANSPORT "Build internal http transport implementation with C
 option(UNIT_TESTING "Build unit test projects" OFF)
 option(UNIT_TESTING_MOCK_ENABLED "wrap PAL functions with mock implementation for tests" OFF)
 option(BUILD_PAHO_TRANSPORT "Build IoT Samples with Paho MQTT support" OFF)
+option(BUILD_MAP_FILES "Directs the linker to generate .map files" OFF)
 
 #enable mock functions with link option -ld
 if(UNIT_TESTING_MOCK_ENABLED)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMOCK_ENABLED")
+endif()
+
+if(BUILD_MAP_FILES)
+  include("${CMAKE_SOURCE_DIR}/cmake-modules/MapFiles.cmake")
 endif()
 
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
