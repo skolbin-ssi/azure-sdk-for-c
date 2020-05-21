@@ -108,3 +108,21 @@ target_link_libraries(
   OpenSSL::SSL
   OpenSSL::Crypto
   )
+
+# SAS token
+add_executable (
+  iot_hub_client_sas_example 
+  ${CMAKE_CURRENT_LIST_DIR}/src/iot_hub_client_sas_example.c
+  )
+
+target_link_libraries(
+  iot_hub_client_sas_example PRIVATE
+  az_iot_hub
+  az_iot_common
+  az_core
+  OpenSSL::SSL
+  OpenSSL::Crypto
+  )
+
+# PAL
+target_link_libraries(iot_hub_client_sas_example PRIVATE ${PAL})

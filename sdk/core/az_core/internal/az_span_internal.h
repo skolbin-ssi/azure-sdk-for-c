@@ -61,6 +61,12 @@ _az_span_url_encode(az_span destination, az_span source, int32_t* out_length);
  */
 AZ_NODISCARD az_span _az_span_token(az_span source, az_span delimiter, az_span* out_remainder);
 
+
+AZ_NODISCARD az_result _az_span_base64_encode(az_span destination, az_span source, int32_t* out_length);
+
+AZ_NODISCARD az_result _az_span_base64_decode(az_span destination, az_span source, int32_t* out_length);
+
+
 #include <_az_cfg_suffix.h>
 
 #endif // _az_SPAN_INTERNAL_H

@@ -161,6 +161,12 @@ AZ_NODISCARD az_result az_iot_hub_client_sas_get_signature(
     az_span signature,
     az_span* out_signature);
 
+AZ_NODISCARD az_result az_iot_hub_client_sas_get_encryption_key(
+    az_span device_key,
+    char* encryption_key,
+    size_t encryption_key_size,
+    size_t* encryption_key_length);
+
 /**
  * @brief Gets the MQTT password.
  * @remark The MQTT password must be an empty string if X509 Client certificates are used. Use this
