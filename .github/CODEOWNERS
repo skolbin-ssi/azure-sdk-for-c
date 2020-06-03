@@ -15,13 +15,36 @@
 /samples/ @gilbertw @jeffreyrichter
 
 # Service teams
-/sdk/core/                  @ahsonkhan @antkmsft @gilbertw @jeffreyrichter @vhvb1989
-/sdk/keyvault/              @vhvb1989
-/sdk/platform/posix/        @antkmsft @jeffreyrichter
-/sdk/platform/http_client/  @vhvb1989
-/sdk/platform/win32/        @antkmsft @jeffreyrichter
-/sdk/storage/               @gilbertw
-/sdk/iot/                   @CIPop @danewalton @ericwol-msft @ewertons @hihigupt @jspaith @momuno
+# Core
+/doc/core/                 @ahsonkhan @antkmsft @gilbertw @jeffreyrichter @vhvb1989
+/inc/azure/core/           @ahsonkhan @antkmsft @gilbertw @jeffreyrichter @vhvb1989
+/samples/core/             @ahsonkhan @antkmsft @gilbertw @jeffreyrichter @vhvb1989
+/src/azure/core/           @ahsonkhan @antkmsft @gilbertw @jeffreyrichter @vhvb1989
+/tests/core/               @ahsonkhan @antkmsft @gilbertw @jeffreyrichter @vhvb1989
+
+# IoT
+/doc/iot/                  @CIPop @danewalton @ericwol-msft @ewertons @hihigupt @jspaith @momuno
+/inc/azure/iot/            @CIPop @danewalton @ericwol-msft @ewertons @hihigupt @jspaith @momuno
+/samples/iot/              @CIPop @danewalton @ericwol-msft @ewertons @hihigupt @jspaith @momuno
+/src/azure/iot/            @CIPop @danewalton @ericwol-msft @ewertons @hihigupt @jspaith @momuno
+/tests/iot/                @CIPop @danewalton @ericwol-msft @ewertons @hihigupt @jspaith @momuno
+
+# Keyvault
+/doc/keyvault/             @vhvb1989
+/inc/azure/keyvault/       @vhvb1989
+/samples/keyvault/         @vhvb1989
+/src/azure/keyvault/       @vhvb1989
+/tests/keyvault/           @vhvb1989
+
+# Platform
+/src/azure/platform/       @antkmsft @jeffreyrichter @vhvb1989
+
+# Storage
+/doc/storage/              @gilbertw
+/inc/azure/storage/        @gilbertw
+/samples/storage/          @gilbertw
+/src/azure/storage/        @gilbertw
+/tests/storage/            @gilbertw
 
 ###########
 # Eng Sys
