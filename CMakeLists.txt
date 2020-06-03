@@ -55,55 +55,31 @@ include(eng/cmake/global_compile_options.txt)
 # At the end of cmake generate, this file will list the targets for code cov
 file(WRITE ${CMAKE_BINARY_DIR}/coverage_targets.txt "")
 
-
-add_subdirectory(sdk/core/az_core)
+add_subdirectory(src/azure/core)
 
 # SDK Clients and tests
-add_subdirectory(sdk/storage/blobs)
-add_subdirectory(sdk/iot/common)
-add_subdirectory(sdk/iot/hub)
-add_subdirectory(sdk/iot/provisioning)
+add_subdirectory(src/azure/keyvault)
+add_subdirectory(src/azure/iot)
+add_subdirectory(src/azure/storage)
 
-#PAL
-if(AZ_PLATFORM_IMPL STREQUAL "POSIX")
-  add_subdirectory(sdk/platform/posix)
-  set(PAL az_posix)
-elseif(AZ_PLATFORM_IMPL STREQUAL "WIN32")
-  add_subdirectory(sdk/platform/win32)
-  set(PAL az_win32)
-else()
-  add_subdirectory(sdk/platform/noplatform)
-  set(PAL az_noplatform)
-endif()
-
-add_subdirectory(sdk/platform/http_client/nohttp)
-# Adding transport implementation for curl
-# Users can still build Core and SDK client without depending on an HTTP transport implementation
-if(TRANSPORT_CURL)
-  add_subdirectory(sdk/platform/http_client/curl)
-endif()
+#PAL (Hardware + HTTP)
+add_subdirectory(src/azure/platform)
 
 # User can disable samples generation by setting env variable AZ_SDK_C_NO_SAMPLES
 if(NOT DEFINED ENV{AZ_SDK_C_NO_SAMPLES})
-  add_subdirectory(sdk/samples/keyvault/keyvault)
-  add_subdirectory(sdk/samples/keyvault/keyvault/samples)
-  add_subdirectory(sdk/storage/blobs/samples)
+  add_subdirectory(samples/keyvault)
+  add_subdirectory(samples/storage)
   if(TRANSPORT_PAHO)
-    add_subdirectory(sdk/iot/provisioning/samples)
-    add_subdirectory(sdk/iot/hub/samples)
+    add_subdirectory(samples/iot/provisioning)
+    add_subdirectory(samples/iot/hub)
   endif()
 endif()
 
 # default for Unit testing with cmocka is OFF, however, this will be ON on CI and tests must
 # pass before commiting changes
 if (UNIT_TESTING)
-  add_subdirectory(sdk/core/az_core/test)
-  add_subdirectory(sdk/storage/blobs/test)
-  add_subdirectory(sdk/iot/common/tests)
-  add_subdirectory(sdk/iot/hub/tests)
-  add_subdirectory(sdk/iot/provisioning/tests)
-
-  if(NOT DEFINED ENV{AZ_SDK_C_NO_SAMPLES})
-    add_subdirectory(sdk/samples/keyvault/keyvault/test)
-  endif()
+  add_subdirectory(tests/core)
+  add_subdirectory(tests/iot)
+  add_subdirectory(tests/keyvault)
+  add_subdirectory(tests/storage)
 endif()
