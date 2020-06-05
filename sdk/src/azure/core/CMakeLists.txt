@@ -6,7 +6,7 @@ set(TARGET_NAME "az_core")
 
 # Read in az_version.h
 #   The build will fail with an error if the file is not found or improperly formatted
-set(AZ_SDK_VERSION_H_FILE "${az_SOURCE_DIR}/inc/azure/core/az_version.h")
+set(AZ_SDK_VERSION_H_FILE "${az_SOURCE_DIR}/sdk/inc/azure/core/az_version.h")
 
 if(EXISTS ${AZ_SDK_VERSION_H_FILE})
     file (STRINGS ${AZ_SDK_VERSION_H_FILE} VERSION_H_CONTENT)
@@ -67,15 +67,8 @@ add_library (
 
 target_include_directories (${TARGET_NAME}
   PUBLIC
-    # $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
-    $<BUILD_INTERFACE:${az_SOURCE_DIR}/inc>
+    $<BUILD_INTERFACE:${az_SOURCE_DIR}/sdk/inc>
     $<INSTALL_INTERFACE:include/${TARGET_NAME}>
-)
-# include internal headers
-target_include_directories(${TARGET_NAME}
-  PUBLIC
-    $<BUILD_INTERFACE:${az_SOURCE_DIR}/internal>
-    $<INSTALL_INTERFACE:include/az_core_internal>
 )
 
 # include test internal headers

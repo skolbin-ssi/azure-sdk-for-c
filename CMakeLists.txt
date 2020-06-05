@@ -55,15 +55,15 @@ include(eng/cmake/global_compile_options.txt)
 # At the end of cmake generate, this file will list the targets for code cov
 file(WRITE ${CMAKE_BINARY_DIR}/coverage_targets.txt "")
 
-add_subdirectory(src/azure/core)
+add_subdirectory(sdk/src/azure/core)
 
 # SDK Clients and tests
-add_subdirectory(src/azure/keyvault)
-add_subdirectory(src/azure/iot)
-add_subdirectory(src/azure/storage)
+add_subdirectory(sdk/src/azure/keyvault)
+add_subdirectory(sdk/src/azure/iot)
+add_subdirectory(sdk/src/azure/storage)
 
 #PAL (Hardware + HTTP)
-add_subdirectory(src/azure/platform)
+add_subdirectory(sdk/src/azure/platform)
 
 # User can disable samples generation by setting env variable AZ_SDK_C_NO_SAMPLES
 if(NOT DEFINED ENV{AZ_SDK_C_NO_SAMPLES})

@@ -15,7 +15,7 @@ add_library (${TARGET_NAME}
   ${CMAKE_CURRENT_LIST_DIR}/az_keyvault_client.c
 )
 
-target_include_directories (${TARGET_NAME} PUBLIC ${az_SOURCE_DIR}/inc)
+target_include_directories (${TARGET_NAME} PUBLIC ${az_SOURCE_DIR}/sdk/inc)
 
 target_link_libraries(${TARGET_NAME}
   PUBLIC
@@ -24,7 +24,7 @@ target_link_libraries(${TARGET_NAME}
 
 # include internal headers
 target_include_directories(${TARGET_NAME} PUBLIC
-  $<BUILD_INTERFACE:${az_SOURCE_DIR}/sdk/core/az_core/internal>
+  $<BUILD_INTERFACE:${az_SOURCE_DIR}/sdk/sdk/core/az_core/internal>
   $<INSTALL_INTERFACE:include/az_core_internal>
 )
 
@@ -33,6 +33,6 @@ add_library (az::keyvault ALIAS ${TARGET_NAME})
 
 # set coverage excluding for az_core. Don't show coverage outside keyvault
 set(COV_EXCLUDE
-    ${az_SOURCE_DIR}/sdk/core/az_core/inc/*
-    ${az_SOURCE_DIR}/sdk/core/az_core/internal/*)
+    ${az_SOURCE_DIR}/sdk/sdk/core/az_core/inc/*
+    ${az_SOURCE_DIR}/sdk/sdk/core/az_core/internal/*)
 include(CreateCodeCoverageTargets)

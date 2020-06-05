@@ -15,7 +15,7 @@ add_library(az_iot_common
 
 target_include_directories (az_iot_common
   PUBLIC
-    ${az_SOURCE_DIR}/inc
+    ${az_SOURCE_DIR}/sdk/inc
 )
 
 target_link_libraries(az_iot_common PRIVATE az_core)
@@ -35,7 +35,7 @@ add_library(az_iot_hub
 
 target_include_directories(az_iot_hub
   PUBLIC
-    ${az_SOURCE_DIR}/inc
+    ${az_SOURCE_DIR}/sdk/inc
 )
 
 target_link_libraries(az_iot_hub
@@ -54,7 +54,7 @@ add_library(az_iot_provisioning
 
 target_include_directories(az_iot_provisioning
   PUBLIC
-    ${az_SOURCE_DIR}/inc
+    ${az_SOURCE_DIR}/sdk/inc
 )
 
 target_link_libraries(az_iot_provisioning
@@ -68,6 +68,6 @@ add_library(az::iot::provisioning ALIAS az_iot_provisioning)
 
 # set coverage excluding for az_core. Don't show coverage outside iot
 set(COV_EXCLUDE
-    ${az_SOURCE_DIR}/sdk/core/az_core/inc/*
-    ${az_SOURCE_DIR}/sdk/core/az_core/internal/*)
+    ${az_SOURCE_DIR}/sdk/sdk/core/az_core/inc/*
+    ${az_SOURCE_DIR}/sdk/sdk/core/az_core/internal/*)
 include(CreateCodeCoverageTargets)
