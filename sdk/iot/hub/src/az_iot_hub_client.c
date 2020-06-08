@@ -169,8 +169,11 @@ AZ_NODISCARD az_result az_iot_hub_client_get_user_name_with_model_id(
     return AZ_ERROR_INSUFFICIENT_SPAN_SIZE;
   }
 
-  *out_mqtt_user_name_length
-      = mqtt_user_name_size - (size_t)az_span_size(remainder) - sizeof(null_terminator);
+  if (out_mqtt_user_name_length != NULL)
+  {
+    *out_mqtt_user_name_length
+        = mqtt_user_name_size - (size_t)az_span_size(remainder) - sizeof(null_terminator);
+  }
 
   return AZ_OK;
 }

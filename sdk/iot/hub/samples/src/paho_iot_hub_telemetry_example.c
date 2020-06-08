@@ -55,10 +55,12 @@ static char x509_trust_pem_file[256];
 char telemetry_topic[128];
 
 static char mqtt_client_id[128];
-static char mqtt_username[128];
+static char mqtt_username[256];
 static char mqtt_endpoint[128];
 static az_span mqtt_url_prefix = AZ_SPAN_LITERAL_FROM_STR("ssl://");
 static az_span mqtt_url_suffix = AZ_SPAN_LITERAL_FROM_STR(":8883");
+
+static const az_span model_id = AZ_SPAN_LITERAL_FROM_STR("dtmi:com:example:SampleDevice;1");
 
 static const char* telemetry_message_payloads[NUMBER_OF_MESSAGES] = {
   "Message One", "Message Two", "Message Three", "Message Four", "Message Five",
@@ -186,12 +188,14 @@ static int connect_device()
   // Get the MQTT user name used to connect to IoT Hub
   if (az_failed(
           rc
-          = az_iot_hub_client_get_user_name(&client, mqtt_username, sizeof(mqtt_username), NULL)))
+          = az_iot_hub_client_get_user_name_with_model_id(&client, model_id, mqtt_username, sizeof(mqtt_username), NULL)))
 
   {
     printf("Failed to get MQTT clientId, return code %d\n", rc);
     return rc;
   }
+
+  printf("%s\r\n", mqtt_username);
 
   // This sample uses X509 authentication so the password field is set to NULL
   mqtt_connect_options.username = mqtt_username;
