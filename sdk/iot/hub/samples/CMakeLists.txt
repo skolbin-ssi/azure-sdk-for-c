@@ -63,6 +63,19 @@ target_link_libraries(
   OpenSSL::Crypto
   )
 
+# Telemetry PnP Sample
+add_executable (
+  paho_iot_hub_pnp_telemetry_example
+  ${CMAKE_CURRENT_LIST_DIR}/src/paho_iot_hub_pnp_telemetry_example.c
+  )
+
+target_link_libraries(
+  paho_iot_hub_pnp_telemetry_example PRIVATE
+  az_iot_hub
+  az_iot_common
+  az_core
+  )
+
 # Telemetry Sample
 add_executable (
   paho_iot_hub_telemetry_example
