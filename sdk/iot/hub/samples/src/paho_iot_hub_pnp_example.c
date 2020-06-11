@@ -372,7 +372,7 @@ static int on_received(void* context, char* topicName, int topicLen, MQTTClient_
       // A response from a twin reported properties publish message. With a successfull update of
       // the reported properties, the payload will be empty and the status will be 204.
       case AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES:
-        printf("A twin reported properties message was received\n");
+        printf("A twin reported properties response message was received\n");
         break;
     }
     printf("Response status was %d\n", twin_response.status);
@@ -425,8 +425,8 @@ static int connect_device()
 
   // Get the MQTT user name used to connect to IoT Hub
   if (az_failed(
-          rc
-          = az_iot_hub_client_get_user_name_with_model_id(&client, model_id, mqtt_username, sizeof(mqtt_username), NULL)))
+          rc = az_iot_hub_client_get_user_name_with_model_id(
+              &client, model_id, mqtt_username, sizeof(mqtt_username), NULL)))
 
   {
     printf("Failed to get MQTT clientId, return code %d\n", rc);
@@ -504,6 +504,8 @@ static int send_telemetry_messages()
     return rc;
   }
 
+  //New line to separate messages on the console
+  printf("\n");
   for (int i = 0; i < NUMBER_OF_MESSAGES; ++i)
   {
     printf("Sending Message %d\n", i + 1);
@@ -569,7 +571,7 @@ int main()
     return rc;
   }
 
-  // Subscribe to the necessary twin topics to receive twin updates and responses
+  // Subscribe to the necessary twin and methods topics to receive twin updates and responses
   if ((rc = subscribe()) != 0)
   {
     return rc;
@@ -581,7 +583,7 @@ int main()
     return rc;
   }
 
-  printf("Messages Sent [Press ENTER to shut down]\n");
+  printf("Telemetry Sent | Waiting for messages from the Azure IoT Hub\n[Press ENTER to shut down]\n\n");
   (void)getchar();
 
   // Gracefully disconnect: send the disconnect packet and close the socket
