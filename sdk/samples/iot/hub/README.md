@@ -104,7 +104,7 @@ On failure, a status of `404` will be returned with an empty JSON payload.
 ### [IoT Hub C2D (Certificates)][c2d_sample]
 Receive and view incoming C2D messages using the IoT Hub Client.
 
-### [IoT Hub PnP Sample (Certificates)](pnp_sample)
+### [IoT Hub PnP Sample (Certificates)][pnp_sample]
 Connect a PnP device with the DTMI detailed [here](https://github.com/rido-min/pnp-refresh-demos/blob/master/SimpleThermostat/_model/simplethermostat.json). In short, the capabilities are listed here:
 - **Methods**: Invoke a method called `reboot` with a JSON payload containing a value named `delay` and value of type `integer` for a delay time to reboot the device (Note: the device does not reboot in this case).
 - **Telemetry**: Device sends a JSON message with the field name `temperature` and the `double` value of the temperature.
