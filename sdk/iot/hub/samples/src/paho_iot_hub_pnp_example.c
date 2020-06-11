@@ -22,6 +22,7 @@
 #endif
 
 #include <az_iot_hub_client.h>
+#include <az_json.h>
 #include <az_result.h>
 #include <az_span.h>
 
@@ -61,7 +62,15 @@ static az_span mqtt_url_prefix = AZ_SPAN_LITERAL_FROM_STR("ssl://");
 static az_span mqtt_url_suffix = AZ_SPAN_LITERAL_FROM_STR(":8883");
 
 static const az_span model_id = AZ_SPAN_LITERAL_FROM_STR("dtmi:com:example:SampleDevice;1");
+static const az_span reboot_method_name_span = AZ_SPAN_LITERAL_FROM_STR("reboot");
+static const az_span desired_temp_property_name = AZ_SPAN_LITERAL_FROM_STR("targetTemperature");
+static const az_span current_temp_property_name = AZ_SPAN_LITERAL_FROM_STR("currentTemperature");
+static double current_device_temp;
+static char reported_property_topic[128];
+static az_span reported_property_topic_request_id = AZ_SPAN_LITERAL_FROM_STR("reported_prop");
+static char reported_property_payload[64];
 
+static char methods_response_topic[128];
 static const char* telemetry_message_payloads[NUMBER_OF_MESSAGES] = {
   "Message One", "Message Two", "Message Three", "Message Four", "Message Five",
 };
@@ -174,6 +183,235 @@ static az_result read_configuration_and_init_client()
   return AZ_OK;
 }
 
+static az_result reboot_method(void)
+{
+  // Nothing to do. Good to go.
+  return AZ_OK;
+}
+
+static int send_method_response(
+    az_iot_hub_client_method_request* request,
+    uint16_t status,
+    az_span response)
+{
+  // Get the response topic to publish the method response
+  if (az_failed(az_iot_hub_client_methods_response_get_publish_topic(
+          &client,
+          request->request_id,
+          status,
+          methods_response_topic,
+          sizeof(methods_response_topic),
+          NULL)))
+  {
+    printf("Unable to get twin document publish topic");
+    return -1;
+  }
+
+  printf("Status: %u\tPayload:", status);
+  char* payload_char = (char*)az_span_ptr(response);
+  if (payload_char == NULL)
+  {
+    for (int32_t i = 0; i < az_span_size(response); i++)
+    {
+      putchar(*(payload_char + i));
+    }
+    putchar('\n');
+  }
+
+  // Send the methods response
+  int rc;
+  if ((rc = MQTTClient_publish(
+           mqtt_client,
+           methods_response_topic,
+           az_span_size(response),
+           az_span_ptr(response),
+           0,
+           0,
+           NULL))
+      != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to send method response, return code %d\n", rc);
+    return rc;
+  }
+
+  printf("Sent response\n");
+
+  return 0;
+}
+
+static int build_reported_property(az_json_builder* json_builder, double property_val)
+{
+  az_result result;
+  result = az_json_builder_init(json_builder, AZ_SPAN_FROM_BUFFER(reported_property_payload), NULL);
+  result = az_json_builder_append_begin_object(json_builder);
+  result = az_json_builder_append_property_name(json_builder, current_temp_property_name);
+  result = az_json_builder_append_int32_number(json_builder, (int32_t)property_val);
+  result = az_json_builder_append_end_object(json_builder);
+
+  return result;
+}
+
+static int send_reported_temp_property(double desired_temp)
+{
+  int rc;
+  printf("Sending reported property\n");
+
+  // Get the topic used to send a reported property update
+  if (az_failed(
+          rc = az_iot_hub_client_twin_patch_get_publish_topic(
+              &client,
+              reported_property_topic_request_id,
+              reported_property_topic,
+              sizeof(reported_property_topic),
+              NULL)))
+  {
+    printf("Unable to get twin document publish topic, return code %d\n", rc);
+    return rc;
+  }
+
+  // Twin reported properties must be in JSON format. The payload is constructed here.
+  az_json_builder json_builder;
+  if (az_failed(rc = build_reported_property(&json_builder, desired_temp)))
+  {
+    return rc;
+  }
+  az_span json_payload = az_json_builder_get_json(&json_builder);
+
+  printf("Payload: %.*s\n", az_span_size(json_payload), (char*)az_span_ptr(json_payload));
+
+  // Publish the reported property payload to IoT Hub
+  if ((rc = MQTTClient_publish(
+           mqtt_client,
+           reported_property_topic,
+           az_span_size(json_payload),
+           az_span_ptr(json_payload),
+           0,
+           0,
+           NULL))
+      != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to publish reported property, return code %d\n", rc);
+    return rc;
+  }
+  return rc;
+}
+
+static az_result parse_desired_temp_property(az_span twin_span, double* parsed_value)
+{
+  az_result result;
+
+  az_json_parser jp;
+  az_json_token_member tm;
+  AZ_RETURN_IF_FAILED(az_json_parser_init(&jp, twin_span));
+  AZ_RETURN_IF_FAILED(az_json_parser_parse_token(&jp, &tm.token));
+  if (tm.token.kind != AZ_JSON_TOKEN_BEGIN_OBJECT)
+  {
+    return AZ_ERROR_PARSER_UNEXPECTED_CHAR;
+  }
+
+  while (az_succeeded(az_json_parser_parse_token_member(&jp, &tm)))
+  {
+    if (az_span_is_content_equal(desired_temp_property_name, tm.name))
+    {
+      AZ_RETURN_IF_FAILED(az_json_token_get_number(&tm.token, parsed_value));
+    }
+
+    // else ignore token.
+  }
+
+  result = AZ_OK;
+
+  return result;
+}
+
+static int on_received(void* context, char* topicName, int topicLen, MQTTClient_message* message)
+{
+  (void)context;
+
+  if (topicLen == 0)
+  {
+    // The length of the topic if there are one or more NULL characters embedded in topicName,
+    // otherwise topicLen is 0.
+    topicLen = (int)strlen(topicName);
+  }
+
+  printf("Topic: %s\n", topicName);
+
+  az_span topic_span = az_span_init((uint8_t*)topicName, topicLen);
+
+  // Parse the incoming message topic and check which feature it is for
+  az_iot_hub_client_twin_response twin_response;
+  az_iot_hub_client_method_request method_request;
+
+  if (az_succeeded(
+          az_iot_hub_client_twin_parse_received_topic(&client, topic_span, &twin_response)))
+  {
+    printf("Twin Message Arrived\n");
+
+    // Determine what type of incoming twin message this is. Print relevant data for the message.
+    switch (twin_response.response_type)
+    {
+      // A response from a twin GET publish message with the twin document as a payload.
+      case AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_GET:
+        printf("A twin GET response was received\n");
+        if (message->payloadlen)
+        {
+          printf("Payload:\n%.*s\n", message->payloadlen, (char*)message->payload);
+        }
+        break;
+      // An update to the desired properties with the properties as a JSON payload.
+      case AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES:
+        printf("A twin desired properties message was received\n");
+        printf("Payload:\n%.*s\n", message->payloadlen, (char*)message->payload);
+        az_span twin_span = az_span_init((uint8_t*)message->payload, (int32_t)message->payloadlen);
+
+        parse_desired_temp_property(twin_span, &current_device_temp);
+        send_reported_temp_property(current_device_temp);
+
+        break;
+      // A response from a twin reported properties publish message. With a successfull update of
+      // the reported properties, the payload will be empty and the status will be 204.
+      case AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES:
+        printf("A twin reported properties message was received\n");
+        break;
+    }
+    printf("Response status was %d\n", twin_response.status);
+  }
+  if (az_succeeded(az_iot_hub_client_methods_parse_received_topic(
+          &client, az_span_init((uint8_t*)topicName, topicLen), &method_request)))
+  {
+    printf("Direct Method arrived\n");
+    if (az_span_is_content_equal(reboot_method_name_span, method_request.name))
+    {
+      // Invoke Method
+      az_result response = reboot_method();
+      (void)response;
+
+      // Send a response
+      int rc;
+      if ((rc = send_method_response(&method_request, 200, AZ_SPAN_NULL)) != 0)
+      {
+        printf("Unable to send %d response, status %d\n", 200, rc);
+      }
+    }
+    else
+    {
+      // Unsupported Method
+      int rc;
+      if ((rc = send_method_response(&method_request, 404, AZ_SPAN_NULL)) != 0)
+      {
+        printf("Unable to send %d response, status %d\n", 404, rc);
+      }
+    }
+  }
+
+  putchar('\n');
+  MQTTClient_freeMessage(&message);
+  MQTTClient_free(topicName);
+
+  return 1;
+}
+
 static int connect_device()
 {
   int rc;
@@ -214,6 +452,41 @@ static int connect_device()
   if ((rc = MQTTClient_connect(mqtt_client, &mqtt_connect_options)) != MQTTCLIENT_SUCCESS)
   {
     printf("Failed to connect, return code %d\n", rc);
+    return rc;
+  }
+
+  return 0;
+}
+
+static int subscribe()
+{
+  int rc;
+
+  // Subscribe to the methods topic. Messages received on this topic are methods to be invoked
+  // on the device.
+  if ((rc = MQTTClient_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_METHODS_SUBSCRIBE_TOPIC, 1))
+      != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to subscribe to twin patch topic filter, return code %d\n", rc);
+    return rc;
+  }
+
+  // Subscribe to the desired properties PATCH topic. Messages received on this topic will be
+  // updates to the desired properties.
+  if ((rc = MQTTClient_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_TWIN_PATCH_SUBSCRIBE_TOPIC, 1))
+      != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to subscribe to twin patch topic filter, return code %d\n", rc);
+    return rc;
+  }
+
+  // Subscribe to the twin response topic. Messages received on this topic will be response statuses
+  // from published reported properties or the requested twin document from twin GET publish
+  // messages
+  if ((rc = MQTTClient_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_SUBSCRIBE_TOPIC, 1))
+      != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to subscribe to twin response topic filter, return code %d\n", rc);
     return rc;
   }
 
@@ -282,8 +555,22 @@ int main()
     return rc;
   }
 
+  // Set the callback for incoming MQTT messages
+  if ((rc = MQTTClient_setCallbacks(mqtt_client, NULL, NULL, on_received, NULL))
+      != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to set MQTT callbacks, return code %d\n", rc);
+    return rc;
+  }
+
   // Connect to IoT Hub
   if ((rc = connect_device()) != 0)
+  {
+    return rc;
+  }
+
+  // Subscribe to the necessary twin topics to receive twin updates and responses
+  if ((rc = subscribe()) != 0)
   {
     return rc;
   }
