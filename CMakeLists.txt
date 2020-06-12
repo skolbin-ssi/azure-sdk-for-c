@@ -67,19 +67,19 @@ add_subdirectory(sdk/src/azure/platform)
 
 # User can disable samples generation by setting env variable AZ_SDK_C_NO_SAMPLES
 if(NOT DEFINED ENV{AZ_SDK_C_NO_SAMPLES})
-  add_subdirectory(samples/keyvault)
-  add_subdirectory(samples/storage)
+  add_subdirectory(sdk/samples/keyvault)
+  add_subdirectory(sdk/samples/storage)
   if(TRANSPORT_PAHO)
-    add_subdirectory(samples/iot/provisioning)
-    add_subdirectory(samples/iot/hub)
+    add_subdirectory(sdk/samples/iot/provisioning)
+    add_subdirectory(sdk/samples/iot/hub)
   endif()
 endif()
 
 # default for Unit testing with cmocka is OFF, however, this will be ON on CI and tests must
 # pass before commiting changes
 if (UNIT_TESTING)
-  add_subdirectory(tests/core)
-  add_subdirectory(tests/iot)
-  add_subdirectory(tests/keyvault)
-  add_subdirectory(tests/storage)
+  add_subdirectory(sdk/tests/core)
+  add_subdirectory(sdk/tests/iot)
+  add_subdirectory(sdk/tests/keyvault)
+  add_subdirectory(sdk/tests/storage)
 endif()
