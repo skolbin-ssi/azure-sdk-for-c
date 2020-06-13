@@ -74,7 +74,7 @@ target_include_directories (${TARGET_NAME}
 # include test internal headers
 target_include_directories(${TARGET_NAME}
   PUBLIC
-    $<BUILD_INTERFACE:${az_SOURCE_DIR}/tests/core/inc>)
+    $<BUILD_INTERFACE:${az_SOURCE_DIR}/sdk/tests/core/inc>)
 
 # make sure that users can consume the project as a library.
 add_library (az::core ALIAS ${TARGET_NAME})
