@@ -69,7 +69,7 @@ if (TRANSPORT_CURL)
   add_library (
     az_curl
       STATIC
-        src/az_curl.c
+      ${CMAKE_CURRENT_LIST_DIR}/az_curl.c
   )
 
   target_link_libraries(az_curl PRIVATE az_core)
