@@ -21,14 +21,14 @@
 #include <unistd.h>
 #endif
 
-#include <az_iot_hub_client.h>
-#include <az_json.h>
-#include <az_result.h>
-#include <az_span.h>
+#include <azure/iot/az_iot_hub_client.h>
+#include <azure/core/az_json.h>
+#include <azure/core/az_result.h>
+#include <azure/core/az_span.h>
 
 // TODO: #564 - Remove the use of the _az_cfh.h header in samples.
 //              Note: this is required to work-around MQTTClient.h as well as az_span init issues.
-#include <_az_cfg.h>
+#include <azure/core/_az_cfg.h>
 
 // DO NOT MODIFY: Device ID Environment Variable Name
 #define ENV_DEVICE_ID "AZ_IOT_DEVICE_ID"
