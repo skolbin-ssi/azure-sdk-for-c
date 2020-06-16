@@ -21,10 +21,10 @@
 #include <unistd.h>
 #endif
 
-#include <azure/iot/az_iot_hub_client.h>
 #include <azure/core/az_json.h>
 #include <azure/core/az_result.h>
 #include <azure/core/az_span.h>
+#include <azure/iot/az_iot_hub_client.h>
 
 // TODO: #564 - Remove the use of the _az_cfh.h header in samples.
 //              Note: this is required to work-around MQTTClient.h as well as az_span init issues.
@@ -49,34 +49,40 @@
 #define NUMBER_OF_MESSAGES 5
 
 static const uint8_t null_terminator = '\0';
+
+// IoT Hub Connection Values
+static az_iot_hub_client client;
 static char device_id[64];
 static char iot_hub_hostname[128];
 static char x509_cert_pem_file[512];
 static char x509_trust_pem_file[256];
-char telemetry_topic[128];
+static const az_span model_id = AZ_SPAN_LITERAL_FROM_STR("dtmi:com:example:SampleDevice;1");
 
+// MQTT Client Values
+static MQTTClient mqtt_client;
 static char mqtt_client_id[128];
 static char mqtt_username[256];
 static char mqtt_endpoint[128];
 static az_span mqtt_url_prefix = AZ_SPAN_LITERAL_FROM_STR("ssl://");
 static az_span mqtt_url_suffix = AZ_SPAN_LITERAL_FROM_STR(":8883");
 
-static const az_span model_id = AZ_SPAN_LITERAL_FROM_STR("dtmi:com:example:SampleDevice;1");
+// IoT Hub Telemetry Values
+char telemetry_topic[128];
+static const az_span telemetry_name = AZ_SPAN_LITERAL_FROM_STR("temperature");
+static char telemetry_payload[32];
+
+// IoT Hub Direct Methods Values
+static char methods_response_topic[128];
 static const az_span reboot_method_name_span = AZ_SPAN_LITERAL_FROM_STR("reboot");
+
+// IoT Hub Twin Values
+static char reported_property_topic[128];
+static double current_device_temp = 75;
 static const az_span desired_temp_property_name = AZ_SPAN_LITERAL_FROM_STR("targetTemperature");
 static const az_span current_temp_property_name = AZ_SPAN_LITERAL_FROM_STR("currentTemperature");
-static double current_device_temp;
-static char reported_property_topic[128];
 static az_span reported_property_topic_request_id = AZ_SPAN_LITERAL_FROM_STR("reported_prop");
 static char reported_property_payload[64];
 
-static char methods_response_topic[128];
-static const char* telemetry_message_payloads[NUMBER_OF_MESSAGES] = {
-  "Message One", "Message Two", "Message Three", "Message Four", "Message Five",
-};
-
-static az_iot_hub_client client;
-static MQTTClient mqtt_client;
 
 static void sleep_seconds(uint32_t seconds)
 {
@@ -504,7 +510,18 @@ static int send_telemetry_messages()
     return rc;
   }
 
-  //New line to separate messages on the console
+  az_json_builder json_builder;
+  az_result result;
+  result
+      = az_json_builder_init(&json_builder, AZ_SPAN_FROM_BUFFER(telemetry_payload), NULL);
+  result = az_json_builder_append_begin_object(&json_builder);
+  result = az_json_builder_append_property_name(&json_builder, telemetry_name);
+  result = az_json_builder_append_int32_number(&json_builder, (int32_t)current_device_temp);
+  result = az_json_builder_append_end_object(&json_builder);
+  az_span json_payload = az_json_builder_get_json(&json_builder);
+  (void)result;
+
+  // New line to separate messages on the console
   printf("\n");
   for (int i = 0; i < NUMBER_OF_MESSAGES; ++i)
   {
@@ -512,8 +529,8 @@ static int send_telemetry_messages()
     if ((rc = MQTTClient_publish(
              mqtt_client,
              telemetry_topic,
-             (int)strlen(telemetry_message_payloads[i]),
-             telemetry_message_payloads[i],
+             (int)az_span_size(json_payload),
+             az_span_ptr(json_payload),
              0,
              0,
              NULL))
@@ -583,7 +600,8 @@ int main()
     return rc;
   }
 
-  printf("Telemetry Sent | Waiting for messages from the Azure IoT Hub\n[Press ENTER to shut down]\n\n");
+  printf("Telemetry Sent | Waiting for messages from the Azure IoT Hub\n[Press ENTER to shut "
+         "down]\n\n");
   (void)getchar();
 
   // Gracefully disconnect: send the disconnect packet and close the socket
