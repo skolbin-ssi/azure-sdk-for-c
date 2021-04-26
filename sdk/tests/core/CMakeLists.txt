@@ -2,25 +2,28 @@
 # SPDX-License-Identifier: MIT
 
 cmake_minimum_required (VERSION 3.10)
-set(TARGET_NAME "az_core_test")
 
-project (${TARGET_NAME} LANGUAGES C)
+project (az_core_test LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 
-include(AddTestCMocka)
+include(AddCMockaTest)
 
 # -ld link option is only available for gcc
 if(UNIT_TESTING_MOCKS)
-    set(WRAP_FUNCTIONS "-Wl,--wrap=az_platform_clock_msec -Wl,--wrap=az_http_client_send_request")
+    set(WRAP_FUNCTIONS "-Wl,--wrap=az_platform_clock_msec -Wl,--wrap=az_platform_sleep_msec")
 else()
     set(WRAP_FUNCTIONS "")
 endif()
 
-add_cmocka_test(${TARGET_NAME} SOURCES
+set(MATH_LIB_UNIX "")
+if (UNIX)
+    set(MATH_LIB_UNIX "m")
+endif()
+
+add_cmocka_test(az_core_test SOURCES
                 main.c
                 test_az_context.c
-                test_az_credential_client_secret.c
                 test_az_http.c
                 test_az_json.c
                 test_az_logging.c
@@ -28,8 +31,13 @@ add_cmocka_test(${TARGET_NAME} SOURCES
                 test_az_policy.c
                 test_az_span.c
                 test_az_url_encode.c
-                COMPILE_OPTIONS ${DEFAULT_C_COMPILE_FLAGS}
-                LINK_OPTIONS ${WRAP_FUNCTIONS}
-                # grant access to Private functions to test az_json_private
-                PRIVATE_ACCESS ON
-                LINK_TARGETS az_core ${PAL} az_nohttp)
+                COMPILE_OPTIONS ${DEFAULT_C_COMPILE_FLAGS} ${NO_CLOBBERED_WARNING}
+                LINK_LIBRARIES ${CMOCKA_LIBRARIES} ${MATH_LIB_UNIX} az_core ${PAL} az_nohttp
+                LINK_OPTIONS ${WRAP_FUNCTIONS}  
+                # include cmoka headers and private folder headers
+                INCLUDE_DIRECTORIES ${CMOCKA_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/sdk/src/azure/core/
+                )
+
+create_map_file(az_core_test az_core_test.map)
+
+add_cmocka_test_environment(az_core_test)

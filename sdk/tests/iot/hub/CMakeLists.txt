@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: MIT
 
 cmake_minimum_required (VERSION 3.10)
-set(TARGET_NAME "az_iot_hub_test")
 
-project (${TARGET_NAME} LANGUAGES C)
+project (az_iot_hub_test LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 
-include(AddTestCMocka)
+include(AddCMockaTest)
 
-add_cmocka_test(${TARGET_NAME} SOURCES
+add_cmocka_test(az_iot_hub_test SOURCES
                 main.c
                 test_az_iot_hub_client_sas.c
                 test_az_iot_hub_client_telemetry.c
@@ -18,10 +17,14 @@ add_cmocka_test(${TARGET_NAME} SOURCES
                 test_az_iot_hub_client.c
                 test_az_iot_hub_client_twin.c
                 test_az_iot_hub_client_methods.c
-                COMPILE_OPTIONS ${DEFAULT_C_COMPILE_FLAGS}
-                LINK_TARGETS
+                COMPILE_OPTIONS ${DEFAULT_C_COMPILE_FLAGS} ${NO_CLOBBERED_WARNING}
+                LINK_LIBRARIES ${CMOCKA_LIBRARIES}
                     az_iot_common
                     az_iot_hub
                     az_core
-                    ${PAL}
+                INCLUDE_DIRECTORIES ${CMOCKA_INCLUDE_DIR}
                 )
+
+create_map_file(az_iot_hub_test az_iot_hub_test.map)
+
+add_cmocka_test_environment(az_iot_hub_test)

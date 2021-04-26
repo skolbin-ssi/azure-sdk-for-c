@@ -4,9 +4,12 @@
 #ifndef _az_TEST_PRECONDITION_H
 #define _az_TEST_PRECONDITION_H
 
-#include <assert.h>
+// These headers must be included prior to including cmocka.h.
 #include <setjmp.h>
 #include <stdarg.h>
+#include <stddef.h>
+
+#include <assert.h>
 #include <stdint.h>
 
 #include <cmocka.h>
@@ -28,25 +31,34 @@
 //   separately is advised.
 // - Tests using ASSERT_PRECONDITION_CHECKED(func) currently must not be run in parallel (!).
 
-#define ENABLE_PRECONDITION_CHECK_TESTS() \
-  static jmp_buf g_precond_test_jmp_buf; \
+#define ENABLE_PRECONDITION_CHECK_TESTS()          \
+  static jmp_buf g_precond_test_jmp_buf;           \
   static unsigned int precondition_test_count = 0; \
-  static void az_precondition_test_failed_fn() \
-  { \
-    precondition_test_count++; \
-    longjmp(g_precond_test_jmp_buf, 0); \
+  static void az_precondition_test_failed_fn()     \
+  {                                                \
+    precondition_test_count++;                     \
+    longjmp(g_precond_test_jmp_buf, 0);            \
   }
 
 #define SETUP_PRECONDITION_CHECK_TESTS() \
   az_precondition_failed_set_callback(az_precondition_test_failed_fn);
 
-#define ASSERT_PRECONDITION_CHECKED(fn) \
-  precondition_test_count = 0; \
-  (void)setjmp(g_precond_test_jmp_buf); \
-  if (precondition_test_count == 0) \
-  { \
-    assert(fn); \
-  } \
-  assert_int_equal(1, precondition_test_count);
+// In release builds, the compiler optimizes out 'ASSERT_PRECONDITION_CHECKED' which could result in
+// function parameters not being used. Explicitly storing the function result as a bool and using
+// (void) to cast it away so that we don't get a warning related to unused variables, particularly
+// in release configurations.
+#define ASSERT_PRECONDITION_CHECKED(fn)           \
+  do                                              \
+  {                                               \
+    precondition_test_count = 0;                  \
+    (void)setjmp(g_precond_test_jmp_buf);         \
+    if (precondition_test_count == 0)             \
+    {                                             \
+      bool const result = (fn);                   \
+      assert(result);                             \
+      (void)result;                               \
+    }                                             \
+    assert_int_equal(1, precondition_test_count); \
+  } while (0)
 
 #endif // _az_TEST_PRECONDITION_H

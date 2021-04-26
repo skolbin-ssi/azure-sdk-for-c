@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_az_iot_provisioning_client.h"
-#include <azure/iot/az_iot_provisioning_client.h>
-#include <azure/core/az_log.h>
-#include <azure/core/az_precondition.h>
-#include <azure/core/internal/az_precondition_internal.h>
-#include <azure/core/az_span.h>
 #include <az_test_log.h>
 #include <az_test_precondition.h>
 #include <az_test_span.h>
+#include <azure/core/az_log.h>
+#include <azure/core/az_precondition.h>
+#include <azure/core/az_span.h>
+#include <azure/core/internal/az_precondition_internal.h>
+#include <azure/iot/az_iot_provisioning_client.h>
 
 #include <setjmp.h>
 #include <stdarg.h>
@@ -29,7 +29,7 @@
 #define TEST_EXPIRATION_STR "1578941692"
 #define TEST_KEY_NAME "iothubowner"
 
-static const az_span test_global_device_endpoint
+static const az_span test_global_device_hostname
     = AZ_SPAN_LITERAL_FROM_STR("global.azure-devices-provisioning.net");
 static const az_span test_id_scope = AZ_SPAN_LITERAL_FROM_STR(TEST_ID_SCOPE);
 static const az_span test_registration_id = AZ_SPAN_LITERAL_FROM_STR(TEST_REGISTRATION_ID_STR);
@@ -44,10 +44,10 @@ static void az_iot_provisioning_client_sas_get_signature_NULL_signature_fails()
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  az_span signature = AZ_SPAN_NULL;
+  az_span signature = AZ_SPAN_EMPTY;
 
   ASSERT_PRECONDITION_CHECKED(az_iot_provisioning_client_sas_get_signature(
       &client, test_sas_expiry_time_secs, signature, NULL));
@@ -58,10 +58,10 @@ static void az_iot_provisioning_client_sas_get_signature_NULL_signature_span_fai
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  az_span signature = AZ_SPAN_NULL;
+  az_span signature = AZ_SPAN_EMPTY;
 
   ASSERT_PRECONDITION_CHECKED(az_iot_provisioning_client_sas_get_signature(
       &client, test_sas_expiry_time_secs, signature, &signature));
@@ -70,7 +70,7 @@ static void az_iot_provisioning_client_sas_get_signature_NULL_signature_span_fai
 static void az_iot_provisioning_client_sas_get_signature_NULL_client_fails()
 {
   uint8_t signature_buffer[TEST_SPAN_BUFFER_SIZE];
-  az_span signature = az_span_init(signature_buffer, _az_COUNTOF(signature_buffer));
+  az_span signature = az_span_create(signature_buffer, _az_COUNTOF(signature_buffer));
 
   ASSERT_PRECONDITION_CHECKED(az_iot_provisioning_client_sas_get_signature(
       NULL, test_sas_expiry_time_secs, signature, &signature));
@@ -81,11 +81,11 @@ static void az_iot_provisioning_client_sas_get_password_EMPTY_signature_fails()
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  az_span key_name = AZ_SPAN_NULL;
-  az_span signature = AZ_SPAN_NULL;
+  az_span key_name = AZ_SPAN_EMPTY;
+  az_span signature = AZ_SPAN_EMPTY;
 
   char password[TEST_SPAN_BUFFER_SIZE];
   size_t length = 0;
@@ -105,10 +105,10 @@ static void az_iot_provisioning_client_sas_get_password_NULL_password_span_fails
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  az_span key_name = AZ_SPAN_NULL;
+  az_span key_name = AZ_SPAN_EMPTY;
   size_t length = 0;
   char password[TEST_SPAN_BUFFER_SIZE];
 
@@ -127,10 +127,10 @@ static void az_iot_provisioning_client_sas_get_password_empty_password_buffer_fa
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  az_span key_name = AZ_SPAN_NULL;
+  az_span key_name = AZ_SPAN_EMPTY;
 
   char password[TEST_SPAN_BUFFER_SIZE];
   size_t length = 0;
@@ -146,7 +146,7 @@ static void az_iot_provisioning_client_sas_get_signature_device_succeeds()
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
   const char expected_signature[] = TEST_URL_ENCODED_RESOURCE_URI "\n" TEST_EXPIRATION_STR;
@@ -155,7 +155,7 @@ static void az_iot_provisioning_client_sas_get_signature_device_succeeds()
   az_span signature = az_span_for_test_init(signature_buffer, _az_COUNTOF(signature_buffer));
   az_span out_signature;
 
-  assert_true(az_succeeded(az_iot_provisioning_client_sas_get_signature(
+  assert_true(az_result_succeeded(az_iot_provisioning_client_sas_get_signature(
       &client, test_sas_expiry_time_secs, signature, &out_signature)));
 
   az_span_for_test_verify(
@@ -171,19 +171,18 @@ static void az_iot_provisioning_client_sas_get_password_device_succeeds()
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  const char expected_password[]
-      = "SharedAccessSignature sr=" TEST_URL_ENCODED_RESOURCE_URI
-        "&sig=" TEST_URL_ENC_SIG "&se=" TEST_EXPIRATION_STR;
+  const char expected_password[] = "SharedAccessSignature sr=" TEST_URL_ENCODED_RESOURCE_URI
+                                   "&sig=" TEST_URL_ENC_SIG "&se=" TEST_EXPIRATION_STR;
 
-  az_span key_name = AZ_SPAN_NULL;
+  az_span key_name = AZ_SPAN_EMPTY;
 
   char password[TEST_SPAN_BUFFER_SIZE];
   size_t length = 0;
 
-  assert_true(az_succeeded(az_iot_provisioning_client_sas_get_password(
+  assert_true(az_result_succeeded(az_iot_provisioning_client_sas_get_password(
       &client,
       test_signature,
       test_sas_expiry_time_secs,
@@ -201,19 +200,19 @@ static void az_iot_provisioning_client_sas_get_password_device_with_keyname_succ
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
   const char expected_password[]
-      = "SharedAccessSignature sr=" TEST_URL_ENCODED_RESOURCE_URI
-        "&sig=" TEST_URL_ENC_SIG "&se=" TEST_EXPIRATION_STR "&skn=" TEST_KEY_NAME;
+      = "SharedAccessSignature sr=" TEST_URL_ENCODED_RESOURCE_URI "&sig=" TEST_URL_ENC_SIG
+        "&se=" TEST_EXPIRATION_STR "&skn=" TEST_KEY_NAME;
 
   az_span key_name = AZ_SPAN_FROM_STR(TEST_KEY_NAME);
 
   char password[TEST_SPAN_BUFFER_SIZE];
   size_t length = 0;
 
-  assert_true(az_succeeded(az_iot_provisioning_client_sas_get_password(
+  assert_true(az_result_succeeded(az_iot_provisioning_client_sas_get_password(
       &client,
       test_signature,
       test_sas_expiry_time_secs,
@@ -231,10 +230,10 @@ static void az_iot_provisioning_client_sas_get_password_device_overflow_fails()
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
-  az_span key_name = AZ_SPAN_NULL;
+  az_span key_name = AZ_SPAN_EMPTY;
 
   char password[132];
   size_t length = 0;
@@ -248,7 +247,7 @@ static void az_iot_provisioning_client_sas_get_password_device_overflow_fails()
           password,
           _az_COUNTOF(password),
           &length),
-      AZ_ERROR_INSUFFICIENT_SPAN_SIZE);
+      AZ_ERROR_NOT_ENOUGH_SPACE);
 }
 
 static void az_iot_provisioning_client_sas_get_signature_device_signature_overflow_fails()
@@ -256,16 +255,16 @@ static void az_iot_provisioning_client_sas_get_signature_device_signature_overfl
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
   uint8_t signature_buffer[54];
-  az_span signature = az_span_init(signature_buffer, _az_COUNTOF(signature_buffer));
+  az_span signature = az_span_create(signature_buffer, _az_COUNTOF(signature_buffer));
 
   assert_int_equal(
       az_iot_provisioning_client_sas_get_signature(
           &client, test_sas_expiry_time_secs, signature, &signature),
-      AZ_ERROR_INSUFFICIENT_SPAN_SIZE);
+      AZ_ERROR_NOT_ENOUGH_SPACE);
 }
 
 static int _log_invoked_sas = 0;
@@ -283,32 +282,73 @@ static void _log_listener(az_log_classification classification, az_span message)
   }
 }
 
+static bool _should_write_iot_sas_token_only(az_log_classification classification)
+{
+  switch (classification)
+  {
+    case AZ_LOG_IOT_SAS_TOKEN:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool _should_write_nothing(az_log_classification classification)
+{
+  (void)classification;
+  return false;
+}
+
 static void test_az_iot_provisioning_client_sas_logging_succeed()
 {
-  az_log_classification const classifications[] = { AZ_LOG_IOT_SAS_TOKEN, AZ_LOG_END_OF_LIST };
-  az_log_set_classifications(classifications);
-  az_log_set_callback(_log_listener);
+  az_log_set_message_callback(_log_listener);
+  az_log_set_classification_filter_callback(_should_write_iot_sas_token_only);
 
-  assert_int_equal(0, _log_invoked_sas);
   _log_invoked_sas = 0;
 
   az_iot_provisioning_client client;
   assert_int_equal(
       az_iot_provisioning_client_init(
-          &client, test_global_device_endpoint, test_id_scope, test_registration_id, NULL),
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
       AZ_OK);
 
   uint8_t signature_buffer[TEST_SPAN_BUFFER_SIZE];
-  az_span signature = az_span_init(signature_buffer, _az_COUNTOF(signature_buffer));
+  az_span signature = az_span_create(signature_buffer, _az_COUNTOF(signature_buffer));
   az_span out_signature;
 
-  assert_true(az_succeeded(az_iot_provisioning_client_sas_get_signature(
+  assert_true(az_result_succeeded(az_iot_provisioning_client_sas_get_signature(
       &client, test_sas_expiry_time_secs, signature, &out_signature)));
 
   assert_int_equal(_az_BUILT_WITH_LOGGING(1, 0), _log_invoked_sas);
 
-  az_log_set_callback(NULL);
-  az_log_set_classifications(NULL);
+  az_log_set_message_callback(NULL);
+  az_log_set_classification_filter_callback(NULL);
+}
+
+static void test_az_iot_provisioning_client_sas_no_logging_succeed()
+{
+  az_log_set_message_callback(_log_listener);
+  az_log_set_classification_filter_callback(_should_write_nothing);
+
+  _log_invoked_sas = 0;
+
+  az_iot_provisioning_client client;
+  assert_int_equal(
+      az_iot_provisioning_client_init(
+          &client, test_global_device_hostname, test_id_scope, test_registration_id, NULL),
+      AZ_OK);
+
+  uint8_t signature_buffer[TEST_SPAN_BUFFER_SIZE];
+  az_span signature = az_span_create(signature_buffer, _az_COUNTOF(signature_buffer));
+  az_span out_signature;
+
+  assert_true(az_result_succeeded(az_iot_provisioning_client_sas_get_signature(
+      &client, test_sas_expiry_time_secs, signature, &out_signature)));
+
+  assert_int_equal(_az_BUILT_WITH_LOGGING(0, 0), _log_invoked_sas);
+
+  az_log_set_message_callback(NULL);
+  az_log_set_classification_filter_callback(NULL);
 }
 
 #ifdef _MSC_VER
@@ -337,6 +377,7 @@ int test_az_iot_provisioning_client_sas_token()
     cmocka_unit_test(az_iot_provisioning_client_sas_get_password_device_overflow_fails),
     cmocka_unit_test(az_iot_provisioning_client_sas_get_signature_device_signature_overflow_fails),
     cmocka_unit_test(test_az_iot_provisioning_client_sas_logging_succeed),
+    cmocka_unit_test(test_az_iot_provisioning_client_sas_no_logging_succeed),
   };
   return cmocka_run_group_tests_name("az_iot_provisioning_client_sas", tests, NULL, NULL);
 }

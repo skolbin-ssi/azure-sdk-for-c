@@ -4,10 +4,10 @@
 /**
  * @file az_iot_hub_client.h
  *
- * @brief definition for the Azure IoT Hub client.
- * @remark The IoT Hub MQTT protocol is described at 
+ * @brief Definition for the Azure IoT Hub client.
+ * @note The IoT Hub MQTT protocol is described at
  * https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support
- * 
+ *
  * @note You MUST NOT use any symbols (macros, functions, structures, enums, etc.)
  * prefixed with an underscore ('_') directly in your application code. These symbols
  * are part of Azure SDK's internal implementation; we do not document these symbols
@@ -17,9 +17,9 @@
 #ifndef _az_IOT_HUB_CLIENT_H
 #define _az_IOT_HUB_CLIENT_H
 
-#include <azure/iot/az_iot_common.h>
 #include <azure/core/az_result.h>
 #include <azure/core/az_span.h>
+#include <azure/iot/az_iot_common.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -32,27 +32,35 @@
  */
 enum
 {
-  AZ_HUB_CLIENT_DEFAULT_MQTT_TELEMETRY_QOS = 0,
-  AZ_HUB_CLIENT_DEFAULT_MQTT_TELEMETRY_DUPLICATE = 0,
-  AZ_HUB_CLIENT_DEFAULT_MQTT_TELEMETRY_RETAIN = 1
+  AZ_HUB_CLIENT_DEFAULT_MQTT_TELEMETRY_QOS = 0
 };
 
 /**
  * @brief Azure IoT Hub Client options.
  *
  */
-typedef struct az_iot_hub_client_options
+typedef struct
 {
-  az_span module_id; /**< The module name (if a module identity is used). */
-  az_span user_agent; /**< The user-agent is a formatted string that will be used for Azure IoT
-                         usage statistics. */
+  /**
+   * The module name (if a module identity is used).
+   */
+  az_span module_id;
+
+  /**
+   * The user-agent is a formatted string that will be used for Azure IoT usage statistics.
+   */
+  az_span user_agent;
+
+  /**
+   * The model ID used to identify the capabilities of a device based on the Digital Twin document.
+   */
+  az_span model_id;
 } az_iot_hub_client_options;
 
 /**
  * @brief Azure IoT Hub Client.
- *
  */
-typedef struct az_iot_hub_client
+typedef struct
 {
   struct
   {
@@ -65,7 +73,7 @@ typedef struct az_iot_hub_client
 /**
  * @brief Gets the default Azure IoT Hub Client options.
  * @details Call this to obtain an initialized #az_iot_hub_client_options structure that can be
- *          afterwards modified and passed to #az_iot_hub_client_init.
+ * afterwards modified and passed to #az_iot_hub_client_init.
  *
  * @return #az_iot_hub_client_options.
  */
@@ -76,10 +84,20 @@ AZ_NODISCARD az_iot_hub_client_options az_iot_hub_client_options_default();
  *
  * @param[out] client The #az_iot_hub_client to use for this call.
  * @param[in] iot_hub_hostname The IoT Hub Hostname.
- * @param[in] device_id The Device ID.
+ * @param[in] device_id The Device ID. If the ID contains any of the following characters, they must
+ * be percent-encoded as follows:
+ *         - `/` : `%2F`
+ *         - `%` : `%25`
+ *         - `#` : `%23`
+ *         - `&` : `%26`
  * @param[in] options A reference to an #az_iot_hub_client_options structure. If `NULL` is passed,
- * `az_iot_hub_client_init()` will use the default options.
- * @return #az_result.
+ * the hub client will use the default options. If using custom options, please initialize first by
+ * calling az_iot_hub_client_options_default() and then populating relevant options with your own
+ * values.
+ * @pre \p client must not be `NULL`.
+ * @pre \p iot_hub_hostname must be a valid span of size greater than 0.
+ * @pre \p device_id must be a valid span of size greater than 0.
+ * @return An #az_result value indicating the result of the operation.
  */
 AZ_NODISCARD az_result az_iot_hub_client_init(
     az_iot_hub_client* client,
@@ -88,21 +106,43 @@ AZ_NODISCARD az_result az_iot_hub_client_init(
     az_iot_hub_client_options const* options);
 
 /**
+ * @brief The HTTP URI Path necessary when connecting to IoT Hub using WebSockets.
+ */
+#define AZ_IOT_HUB_CLIENT_WEB_SOCKET_PATH "/$iothub/websocket"
+
+/**
+ * @brief The HTTP URI Path necessary when connecting to IoT Hub using WebSockets without an X509
+ * client certificate.
+ * @note Most devices should use #AZ_IOT_HUB_CLIENT_WEB_SOCKET_PATH. This option is available for
+ * devices not using X509 client certificates that fail to connect to IoT Hub.
+ */
+#define AZ_IOT_HUB_CLIENT_WEB_SOCKET_PATH_NO_X509_CLIENT_CERT \
+  AZ_IOT_HUB_CLIENT_WEB_SOCKET_PATH "?iothub-no-client-cert=true"
+
+/**
  * @brief Gets the MQTT user name.
  *
  * The user name will be of the following format:
- * [Format without module id] {iothubhostname}/{device_id}/?api-version=2018-06-30&{user_agent}
- * [Format with module id]
- * {iothubhostname}/{device_id}/{module_id}/?api-version=2018-06-30&{user_agent}
+ *
+ * **Format without module ID**
+ *
+ * `{iothubhostname}/{device_id}/?api-version=2018-06-30&{user_agent}`
+ *
+ * **Format with module ID**
+ *
+ * `{iothubhostname}/{device_id}/{module_id}/?api-version=2018-06-30&{user_agent}`
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[out] mqtt_user_name A buffer with sufficient capacity to hold the MQTT user name.
- *                            If successful, contains a null-terminated string with the user name
- *                            that needs to be passed to the MQTT client.
+ * @param[out] mqtt_user_name A buffer with sufficient capacity to hold the MQTT user name. If
+ * successful, contains a null-terminated string with the user name that needs to be passed to the
+ * MQTT client.
  * @param[in] mqtt_user_name_size The size, in bytes of \p mqtt_user_name.
- * @param[out] out_mqtt_user_name_length __[nullable]__ Contains the string length, in bytes, of
- *                                                      \p mqtt_user_name. Can be `NULL`.
- * @return #az_result.
+ * @param[out] out_mqtt_user_name_length __[nullable]__ Contains the string length, in bytes, of \p
+ * mqtt_user_name. Can be `NULL`.
+ * @pre \p client must not be `NULL`.
+ * @pre \p mqtt_user_name must not be `NULL`.
+ * @pre \p mqtt_user_name_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
  */
 AZ_NODISCARD az_result az_iot_hub_client_get_user_name(
     az_iot_hub_client const* client,
@@ -111,53 +151,37 @@ AZ_NODISCARD az_result az_iot_hub_client_get_user_name(
     size_t* out_mqtt_user_name_length);
 
 /**
- * @brief Gets the MQTT user name with Digital Twin model id.
+ * @brief Gets the MQTT client ID.
  *
- * @warning THIS FUNCTION IS TEMPORARY. IT IS SUBJECT TO CHANGE OR BE REMOVED IN THE FUTURE.
- * 
- * The user name will be of the following format:
- * {iothubhostname}/{device_id}/?api-version=2020-05-31-preview&{user_agent}&digital-twin-model-id={model_id}
+ * The client ID will be of the following format:
  *
- * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[in] model_id A span with the model id of the device.
- * @param[out] mqtt_user_name A buffer with sufficient capacity to hold the MQTT user name.
- *                            If successful, contains a null-terminated string with the user name
- *                            that needs to be passed to the MQTT client.
- * @param[in] mqtt_user_name_size The size, in bytes of \p mqtt_user_name.
- * @param[out] out_mqtt_user_name_length __[nullable]__ Contains the string length, in bytes, of
- *                                                      \p mqtt_user_name. Can be `NULL`.
- * @return #az_result.
- */
-AZ_NODISCARD az_result az_iot_hub_client_get_user_name_with_model_id(
-    az_iot_hub_client const* client,
-    az_span model_id,
-    char* mqtt_user_name,
-    size_t mqtt_user_name_size,
-    size_t* out_mqtt_user_name_length);
-
-/**
- * @brief Gets the MQTT client id.
+ * **Format without module ID**
  *
- * The client id will be of the following format:
- * [Format without module id] {device_id}
- * [Format with module id] {device_id}/{module_id}
+ * `{device_id}`
+ *
+ * **Format with module ID**
+ *
+ * `{device_id}/{module_id}`
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[out] mqtt_client_id A buffer with sufficient capacity to hold the MQTT client id.
- *                            If successful, contains a null-terminated string with the client id
- *                            that needs to be passed to the MQTT client.
+ * @param[out] mqtt_client_id A buffer with sufficient capacity to hold the MQTT client ID. If
+ * successful, contains a null-terminated string with the client ID that needs to be passed to the
+ * MQTT client.
  * @param[in] mqtt_client_id_size The size, in bytes of \p mqtt_client_id.
  * @param[out] out_mqtt_client_id_length __[nullable]__ Contains the string length, in bytes, of
- *                                                      of \p mqtt_client_id. Can be `NULL`.
- * @return #az_result
+ * \p mqtt_client_id. Can be `NULL`.
+ * @pre \p client must not be `NULL`.
+ * @pre \p mqtt_client_id must not be `NULL`.
+ * @pre \p mqtt_client_id_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
  */
 AZ_NODISCARD az_result az_iot_hub_client_get_client_id(
     az_iot_hub_client const* client,
-    char*  mqtt_client_id,
+    char* mqtt_client_id,
     size_t mqtt_client_id_size,
     size_t* out_mqtt_client_id_length);
 
-/**
+/*
  *
  * SAS Token APIs
  *
@@ -169,152 +193,95 @@ AZ_NODISCARD az_result az_iot_hub_client_get_client_id(
 /**
  * @brief Gets the Shared Access clear-text signature.
  * @details The application must obtain a valid clear-text signature using this API, sign it using
- *          HMAC-SHA256 using the Shared Access Key as password then Base64 encode the result.
+ * HMAC-SHA256 using the Shared Access Key as password then Base64 encode the result.
  *
- * @remark More information available at
+ * Use the following APIs when the Shared Access Key is available to the application or stored
+ * within a Hardware Security Module. The APIs are not necessary if X509 Client Certificate
+ * Authentication is used.
+ *
+ * @note This API should be used in conjunction with az_iot_hub_client_sas_get_password().
+ *
+ * @note More information available at
  * https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-security#security-tokens
- * 
+ *
+ * A typical flow for using these two APIs might look something like the following (note the size
+ * of buffers and non-SDK APIs are for demo purposes only):
+ *
+ * @code
+ * const char* const signature_str = "TST+J9i1F8tE6dLYCtuQcu10u7umGO+aWGqPQhd9AAo=";
+ * az_span signature = AZ_SPAN_FROM_STR(signature_str);
+ * az_iot_hub_client_sas_get_signature(&client, expiration_time_in_seconds, signature, &signature);
+ *
+ * char decoded_sas_key[128] = { 0 };
+ * base64_decode(base64_encoded_sas_key, decoded_sas_key);
+ *
+ * char signed_bytes[256] = { 0 };
+ * hmac_256(az_span_ptr(signature), az_span_size(signature), decoded_sas_key, signed_bytes);
+ *
+ * char signed_bytes_base64_encoded[256] = { 0 };
+ * base64_encode(signed_bytes, signed_bytes_base64_encoded);
+ *
+ * char final_password[512] = { 0 };
+ * az_iot_hub_client_sas_get_password(client, expiration_time_in_seconds,
+ *   AZ_SPAN_FROM_STR(signed_bytes_base64_encoded), final_password, sizeof(final_password), NULL);
+ *
+ * mqtt_set_password(&mqtt_client, final_password);
+ * @endcode
+ *
  * @param[in] client The #az_iot_hub_client to use for this call.
  * @param[in] token_expiration_epoch_time The time, in seconds, from 1/1/1970.
  * @param[in] signature An empty #az_span with sufficient capacity to hold the SAS signature.
  * @param[out] out_signature The output #az_span containing the SAS signature.
- * @return #az_result
+ * @pre \p client must not be `NULL`.
+ * @pre \p token_expiration_epoch_time must be greater than 0.
+ * @pre \p signature must be a valid span of size greater than 0.
+ * @pre \p out_signature must not be `NULL`.
+ * @return An #az_result value indicating the result of the operation.
  */
 AZ_NODISCARD az_result az_iot_hub_client_sas_get_signature(
     az_iot_hub_client const* client,
-    uint32_t token_expiration_epoch_time,
+    uint64_t token_expiration_epoch_time,
     az_span signature,
     az_span* out_signature);
 
 /**
  * @brief Gets the MQTT password.
- * @remark The MQTT password must be an empty string if X509 Client certificates are used. Use this
- *       API only when authenticating with SAS tokens.
+ * @note The MQTT password must be an empty string if X509 Client certificates are used. Use this
+ * API only when authenticating with SAS tokens.
+ *
+ * @note This API should be used in conjunction with az_iot_hub_client_sas_get_signature().
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
  * @param[in] base64_hmac_sha256_signature The Base64 encoded value of the HMAC-SHA256(signature,
- *                                         SharedAccessKey). The signature is obtained by using
- *                                         #az_iot_hub_client_sas_get_signature.
- * @param[in] token_expiration_epoch_time The time, in seconds, from 1/1/1970.
- *                                        It MUST be the same value passed to
- *                                        az_iot_hub_client_sas_get_signature.
+ * SharedAccessKey). The signature is obtained by using az_iot_hub_client_sas_get_signature().
+ * @param[in] token_expiration_epoch_time The time, in seconds, from 1/1/1970. It MUST be the same
+ * value passed to az_iot_hub_client_sas_get_signature().
  * @param[in] key_name The Shared Access Key Name (Policy Name). This is optional. For security
- *                     reasons we recommend using one key per device instead of using a global
- *                     policy key.
+ * reasons we recommend using one key per device instead of using a global policy key.
  * @param[out] mqtt_password A char buffer with sufficient capacity to hold the MQTT password.
  * @param[in] mqtt_password_size The size, in bytes of \p mqtt_password.
- * @param[out] out_mqtt_password_length __[nullable]__ Contains the string length, in bytes, of
- *                                                     \p mqtt_password. Can be `NULL`.
- * @return #az_result.
- *         #AZ_OK if successful. In this case, `mqtt_password` will contain a null-terminated string
- *           with the password that needs to be passed to the MQTT client.
- *         #AZ_ERROR_INSUFFICIENT_SPAN_SIZE If `mqtt_password` does not have enough size.
+ * @param[out] out_mqtt_password_length __[nullable]__ Contains the string length, in bytes, of \p
+ * mqtt_password. Can be `NULL`.
+ * @pre \p client must not be `NULL`.
+ * @pre \p token_expiration_epoch_time must be greater than 0.
+ * @pre \p base64_hmac_sha256_signature must be a valid span of size greater than 0.
+ * @pre \p mqtt_password must not be `NULL`.
+ * @pre \p mqtt_password_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The operation was successful. In this case, \p mqtt_password will contain a
+ * null-terminated string with the password that needs to be passed to the MQTT client.
+ * @retval #AZ_ERROR_NOT_ENOUGH_SPACE The \p mqtt_password does not have enough size.
  */
 AZ_NODISCARD az_result az_iot_hub_client_sas_get_password(
     az_iot_hub_client const* client,
+    uint64_t token_expiration_epoch_time,
     az_span base64_hmac_sha256_signature,
-    uint32_t token_expiration_epoch_time,
     az_span key_name,
     char* mqtt_password,
     size_t mqtt_password_size,
     size_t* out_mqtt_password_length);
 
-/**
- *
- * Properties APIs
- *
- *   IoT Hub message properties are used for Device-to-Cloud (D2C) as well as Cloud-to-Device (C2D).
- *   Properties are always appended to the MQTT topic of the published or received message and
- *   must contain Uri-encoded keys and values.
- */
-
-/**
- * @brief Telemetry or C2D properties.
- *
- */
-typedef struct az_iot_hub_client_properties
-{
-  struct
-  {
-    az_span properties_buffer;
-    int32_t properties_written;
-    uint32_t current_property_index;
-  } _internal;
-} az_iot_hub_client_properties;
-
-/**
- * @brief Initializes the Telemetry or C2D properties.
- *
- * @note The properties init API will not encode properties. In order to support
- *       the following characters, they must be percent-encoded (RFC3986) as follows:
- *          `/` : `%2F`
- *          `%` : `%25`
- *          `#` : `%23`
- *          `&` : `%26`
- *       Only these characters would have to be encoded. If you would like to avoid the need to
- *       encode the names/values, avoid using these characters in names and values.
- *
- * @param[in] properties The #az_iot_hub_client_properties to initialize
- * @param[in] buffer Can either be an empty #az_span or an #az_span containing properly formatted
- *                   (with above mentioned characters encoded if applicable) properties with the
- *                   following format: {key}={value}&{key}={value}.
- * @param[in] written_length The length of the properly formatted properties already initialized
- * within the buffer. If the \p buffer is empty (uninitialized), this should be 0.
- * @return #az_result
- */
-AZ_NODISCARD az_result az_iot_hub_client_properties_init(
-    az_iot_hub_client_properties* properties,
-    az_span buffer,
-    int32_t written_length);
-
-/**
- * @brief Appends a key-value property to the list of properties.
- *
- * @note The properties append API will not encode properties. In order to support
- *       the following characters, they must be percent-encoded (RFC3986) as follows:
- *          `/` : `%2F`
- *          `%` : `%25`
- *          `#` : `%23`
- *          `&` : `%26`
- *       Only these characters would have to be encoded. If you would like to avoid the need to
- *       encode the names/values, avoid using these characters in names and values.
- *
- * @param[in] properties The #az_iot_hub_client_properties to use for this call
- * @param[in] name The name of the property.
- * @param[in] value The value of the property.
- * @return #az_result
- */
-AZ_NODISCARD az_result az_iot_hub_client_properties_append(
-    az_iot_hub_client_properties* properties,
-    az_span name,
-    az_span value);
-
-/**
- * @brief Finds the value of a property.
- * @remark This will return the first value of the property with the given name if multiple properties
- *       with the same key exist.
- *
- * @param[in] properties The #az_iot_hub_client_properties to use for this call
- * @param[in] name The name of the property.
- * @param[out] out_value An #az_span containing the value of the property.
- * @return #az_result.
- */
-AZ_NODISCARD az_result az_iot_hub_client_properties_find(
-    az_iot_hub_client_properties* properties,
-    az_span name,
-    az_span* out_value);
-
-/**
- * @brief Iterates over the list of properties.
- *
- * @param[in] properties The #az_iot_hub_client_properties to use for this call
- * @param[out] out An #az_pair containing the key and the value of the next property.
- * @return #az_result
- */
-AZ_NODISCARD az_result
-az_iot_hub_client_properties_next(az_iot_hub_client_properties* properties, az_pair* out);
-
-/**
+/*
  *
  * Telemetry APIs
  *
@@ -322,27 +289,29 @@ az_iot_hub_client_properties_next(az_iot_hub_client_properties* properties, az_p
 
 /**
  * @brief Gets the MQTT topic that must be used for device to cloud telemetry messages.
- * @remark Telemetry MQTT Publish messages must have QoS At least once (1).
- * @remark This topic can also be used to set the MQTT Will message in the Connect message.
+ * @note This topic can also be used to set the MQTT Will message in the Connect message.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[in] properties An optional #az_iot_hub_client_properties object (can be NULL).
- * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If
- *                        successful, contains a null-terminated string with the topic that
- *                        needs to be passed to the MQTT client.
+ * @param[in] properties An optional #az_iot_message_properties object (can be NULL).
+ * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If successful,
+ * contains a null-terminated string with the topic that needs to be passed to the MQTT client.
  * @param[in] mqtt_topic_size The size, in bytes of \p mqtt_topic.
- * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of
- *                                                  \p mqtt_topic. Can be `NULL`.
- * @return #az_result
+ * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of \p
+ * mqtt_topic. Can be `NULL`.
+ * @pre \p client must not be `NULL`.
+ * @pre \p mqtt_topic must not be `NULL`.
+ * @pre \p mqtt_topic_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic was retrieved successfully.
  */
 AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
     az_iot_hub_client const* client,
-    az_iot_hub_client_properties const* properties,
+    az_iot_message_properties const* properties,
     char* mqtt_topic,
     size_t mqtt_topic_size,
     size_t* out_mqtt_topic_length);
 
-/**
+/*
  *
  * Cloud-to-device (C2D) APIs
  *
@@ -350,7 +319,7 @@ AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
 
 /**
  * @brief The MQTT topic filter to subscribe to Cloud-to-Device requests.
- * @remark C2D MQTT Publish messages will have QoS At least once (1).
+ * @note C2D MQTT Publish messages will have QoS At least once (1).
  */
 #define AZ_IOT_HUB_CLIENT_C2D_SUBSCRIBE_TOPIC "devices/+/messages/devicebound/#"
 
@@ -358,27 +327,40 @@ AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
  * @brief The Cloud-To-Device Request.
  *
  */
-typedef struct az_iot_hub_client_c2d_request
+typedef struct
 {
-  az_iot_hub_client_properties properties; /**< The properties associated with this C2D request. */
+  /**
+   * The properties associated with this C2D request.
+   */
+  az_iot_message_properties properties;
 } az_iot_hub_client_c2d_request;
 
 /**
- * @brief Attempts to parse a received message's topic.
+ * @brief Attempts to parse a received message's topic for C2D features.
+ *
+ * @warning The topic must be a valid MQTT topic or the resulting behavior will be undefined.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
  * @param[in] received_topic An #az_span containing the received topic.
  * @param[out] out_request If the message is a C2D request, this will contain the
- *                         #az_iot_hub_client_c2d_request
- * @return #az_result
- *         - `AZ_ERROR_IOT_TOPIC_NO_MATCH` if the topic is not matching the expected format.
+ * #az_iot_hub_client_c2d_request.
+ * @pre \p client must not be `NULL` and must already be initialized by first calling
+ * az_iot_hub_client_init().
+ * @pre \p received_topic must be a valid span of size greater than 0.
+ * @pre \p out_request must not be `NULL`.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic is meant for this feature and the \p out_request was populated
+ * with relevant information.
+ * @retval #AZ_ERROR_IOT_TOPIC_NO_MATCH The topic does not match the expected format. This could
+ * be due to either a malformed topic OR the message which came in on this topic is not meant for
+ * this feature.
  */
 AZ_NODISCARD az_result az_iot_hub_client_c2d_parse_received_topic(
     az_iot_hub_client const* client,
     az_span received_topic,
     az_iot_hub_client_c2d_request* out_request);
 
-/**
+/*
  *
  * Methods APIs
  *
@@ -386,7 +368,7 @@ AZ_NODISCARD az_result az_iot_hub_client_c2d_parse_received_topic(
 
 /**
  * @brief The MQTT topic filter to subscribe to method requests.
- * @remark Methods MQTT Publish messages will have QoS At most once (0).
+ * @note Methods MQTT Publish messages will have QoS At most once (0).
  */
 #define AZ_IOT_HUB_CLIENT_METHODS_SUBSCRIBE_TOPIC "$iothub/methods/POST/#"
 
@@ -394,22 +376,39 @@ AZ_NODISCARD az_result az_iot_hub_client_c2d_parse_received_topic(
  * @brief A method request received from IoT Hub.
  *
  */
-typedef struct az_iot_hub_client_method_request
+typedef struct
 {
-  az_span request_id; /**< The request id.
-                       * @note The application must match the method request and method response. */
-  az_span name; /**< The method name. */
+  /**
+   * The request ID.
+   * @note The application must match the method request and method response.
+   */
+  az_span request_id;
+
+  /**
+   * The method name.
+   */
+  az_span name;
 } az_iot_hub_client_method_request;
 
 /**
- * @brief Attempts to parse a received message's topic.
+ * @brief Attempts to parse a received message's topic for method features.
+ *
+ * @warning The topic must be a valid MQTT topic or the resulting behavior will be undefined.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
  * @param[in] received_topic An #az_span containing the received topic.
  * @param[out] out_request If the message is a method request, this will contain the
- *                         #az_iot_hub_client_method_request.
- * @return #az_result
- *         - `AZ_ERROR_IOT_TOPIC_NO_MATCH` if the topic is not matching the expected format.
+ * #az_iot_hub_client_method_request.
+ * @pre \p client must not be `NULL` and must already be initialized by first calling
+ * az_iot_hub_client_init().
+ * @pre \p received_topic must be a valid span of size greater than 0.
+ * @pre \p out_request must not be `NULL`.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic is meant for this feature and the \p out_request was populated
+ * with relevant information.
+ * @retval #AZ_ERROR_IOT_TOPIC_NO_MATCH The topic does not match the expected format. This could
+ * be due to either a malformed topic OR the message which came in on this topic is not meant for
+ * this feature.
  */
 AZ_NODISCARD az_result az_iot_hub_client_methods_parse_received_topic(
     az_iot_hub_client const* client,
@@ -420,16 +419,21 @@ AZ_NODISCARD az_result az_iot_hub_client_methods_parse_received_topic(
  * @brief Gets the MQTT topic that must be used to respond to method requests.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[in] request_id The request id. Must match a received #az_iot_hub_client_method_request
- *                       request_id.
+ * @param[in] request_id The request ID. Must match a received #az_iot_hub_client_method_request
+ * request_id.
  * @param[in] status A code that indicates the result of the method, as defined by the user.
- * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If
- *                        successful, contains a null-terminated string with the topic that
- *                        needs to be passed to the MQTT client.
+ * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If successful,
+ * contains a null-terminated string with the topic that needs to be passed to the MQTT client.
  * @param[in] mqtt_topic_size The size, in bytes of \p mqtt_topic.
- * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of
- *                                                  \p mqtt_topic. Can be `NULL`.
- * @return #az_result
+ * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of \p
+ * mqtt_topic. Can be `NULL`.
+ * @pre \p client must not be `NULL` and must already be initialized by first calling
+ * az_iot_hub_client_init().
+ * @pre \p request_id must be a valid span of size greater than 0.
+ * @pre \p mqtt_topic must not be `NULL`.
+ * @pre \p mqtt_topic_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic was retrieved successfully.
  */
 AZ_NODISCARD az_result az_iot_hub_client_methods_response_get_publish_topic(
     az_iot_hub_client const* client,
@@ -439,7 +443,7 @@ AZ_NODISCARD az_result az_iot_hub_client_methods_response_get_publish_topic(
     size_t mqtt_topic_size,
     size_t* out_mqtt_topic_length);
 
-/**
+/*
  *
  * Twin APIs
  *
@@ -447,13 +451,13 @@ AZ_NODISCARD az_result az_iot_hub_client_methods_response_get_publish_topic(
 
 /**
  * @brief The MQTT topic filter to subscribe to twin operation responses.
- * @remark Twin MQTT Publish messages will have QoS At most once (0).
+ * @note Twin MQTT Publish messages will have QoS At most once (0).
  */
 #define AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_SUBSCRIBE_TOPIC "$iothub/twin/res/#"
 
 /**
  * @brief Gets the MQTT topic filter to subscribe to twin desired property changes.
- * @remark Twin MQTT Publish messages will have QoS At most once (0).
+ * @note Twin MQTT Publish messages will have QoS At most once (0).
  */
 #define AZ_IOT_HUB_CLIENT_TWIN_PATCH_SUBSCRIBE_TOPIC "$iothub/twin/PATCH/properties/desired/#"
 
@@ -463,56 +467,88 @@ AZ_NODISCARD az_result az_iot_hub_client_methods_response_get_publish_topic(
  */
 typedef enum
 {
-  AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_GET = 1,
-  AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES = 2,
-  AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES = 3,
+  AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_GET = 1,
+  AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES = 2,
+  AZ_IOT_HUB_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES = 3,
 } az_iot_hub_client_twin_response_type;
 
 /**
  * @brief Twin response.
  *
  */
-typedef struct az_iot_hub_client_twin_response
+typedef struct
 {
-  az_iot_hub_client_twin_response_type response_type; /**< Twin response type. */
-  az_iot_status status; /**< The operation status. */
-  az_span
-      request_id; /**< Request ID matches the ID specified when issuing a Get or Patch command. */
-  az_span version; /**< The Twin object version.
-                    * @remark This is only returned when
-                    * response_type==AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES
-                    * or
-                    * response_type==AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES. */
+  /**
+   * Request ID matches the ID specified when issuing a Get or Patch command.
+   */
+  az_span request_id;
+
+  // Avoid using enum as the first field within structs, to allow for { 0 } initialization.
+  // This is a workaround for IAR compiler warning [Pe188]: enumerated type mixed with another type.
+
+  /**
+   * Twin response type.
+   */
+  az_iot_hub_client_twin_response_type response_type;
+
+  /**
+   * The operation status.
+   */
+  az_iot_status status;
+
+  /**
+   * The Twin object version.
+   * @note This is only returned when
+   * `response_type == AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_DESIRED_PROPERTIES`
+   * or
+   * `response_type == AZ_IOT_CLIENT_TWIN_RESPONSE_TYPE_REPORTED_PROPERTIES`.
+   */
+  az_span version;
 } az_iot_hub_client_twin_response;
 
 /**
- * @brief Attempts to parse a received message's topic.
+ * @brief Attempts to parse a received message's topic for twin features.
+ *
+ * @warning The topic must be a valid MQTT topic or the resulting behavior will be undefined.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
  * @param[in] received_topic An #az_span containing the received topic.
- * @param[out] out_twin_response If the message is twin-operation related, this will contain the
- *                         #az_iot_hub_client_twin_response.
- * @return #az_result
- *         - `AZ_ERROR_IOT_TOPIC_NO_MATCH` if the topic is not matching the expected format.
+ * @param[out] out_response If the message is twin-operation related, this will contain the
+ * #az_iot_hub_client_twin_response.
+ * @pre \p client must not be `NULL` and must already be initialized by first calling
+ * az_iot_hub_client_init().
+ * @pre \p received_topic must be a valid span of size greater than 0.
+ * @pre \p out_response must not be `NULL`.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic is meant for this feature and the \p out_response was populated
+ * with relevant information.
+ * @retval #AZ_ERROR_IOT_TOPIC_NO_MATCH The topic does not match the expected format. This could
+ * be due to either a malformed topic OR the message which came in on this topic is not meant for
+ * this feature.
  */
 AZ_NODISCARD az_result az_iot_hub_client_twin_parse_received_topic(
     az_iot_hub_client const* client,
     az_span received_topic,
-    az_iot_hub_client_twin_response* out_twin_response);
+    az_iot_hub_client_twin_response* out_response);
 
 /**
  * @brief Gets the MQTT topic that must be used to submit a Twin GET request.
- * @remark The payload of the MQTT publish message should be empty.
+ * @note The payload of the MQTT publish message should be empty.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[in] request_id The request id.
- * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If
- *                        successful, contains a null-terminated string with the topic that
- *                        needs to be passed to the MQTT client.
+ * @param[in] request_id The request ID.
+ * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If successful,
+ * contains a null-terminated string with the topic that needs to be passed to the MQTT client.
  * @param[in] mqtt_topic_size The size, in bytes of \p mqtt_topic.
- * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of
- *                                                  \p mqtt_topic. Can be `NULL`.
- * @return #az_result
+ * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of \p
+ * mqtt_topic. Can be `NULL`.
+ * @pre \p client must not be `NULL` and must already be initialized by first calling
+ * az_iot_hub_client_init().
+ * @pre \p request_id must be a valid span of size greater than 0.
+ * @pre \p mqtt_topic must not be `NULL`.
+ * @pre \p mqtt_topic_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic was retrieved successfully.
  */
 AZ_NODISCARD az_result az_iot_hub_client_twin_document_get_publish_topic(
     az_iot_hub_client const* client,
@@ -523,18 +559,23 @@ AZ_NODISCARD az_result az_iot_hub_client_twin_document_get_publish_topic(
 
 /**
  * @brief Gets the MQTT topic that must be used to submit a Twin PATCH request.
- * @remark The payload of the MQTT publish message should contain a JSON document
- *         formatted according to the Twin specification.
+ * @note The payload of the MQTT publish message should contain a JSON document formatted according
+ * to the Twin specification.
  *
  * @param[in] client The #az_iot_hub_client to use for this call.
- * @param[in] request_id The request id.
- * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If
- *                        successful, contains a null-terminated string with the topic that
- *                        needs to be passed to the MQTT client.
+ * @param[in] request_id The request ID.
+ * @param[out] mqtt_topic A buffer with sufficient capacity to hold the MQTT topic. If successful,
+ * contains a null-terminated string with the topic that needs to be passed to the MQTT client.
  * @param[in] mqtt_topic_size The size, in bytes of \p mqtt_topic.
- * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of
- *                                                  \p mqtt_topic. Can be `NULL`.
- * @return #az_result
+ * @param[out] out_mqtt_topic_length __[nullable]__ Contains the string length, in bytes, of \p
+ * mqtt_topic. Can be `NULL`.
+ * @pre \p client must not be `NULL` and must already be initialized by first calling
+ * az_iot_hub_client_init().
+ * @pre \p request_id must be a valid span of size greater than 0.
+ * @pre \p mqtt_topic must not be `NULL`.
+ * @pre \p mqtt_topic_size must be greater than 0.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK The topic was retrieved successfully.
  */
 AZ_NODISCARD az_result az_iot_hub_client_twin_patch_get_publish_topic(
     az_iot_hub_client const* client,
@@ -545,4 +586,4 @@ AZ_NODISCARD az_result az_iot_hub_client_twin_patch_get_publish_topic(
 
 #include <azure/core/_az_cfg_suffix.h>
 
-#endif //!_az_IOT_HUB_CLIENT_H
+#endif // _az_IOT_HUB_CLIENT_H

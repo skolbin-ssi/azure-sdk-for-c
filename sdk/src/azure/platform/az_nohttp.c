@@ -5,18 +5,10 @@
 
 #include <azure/core/_az_cfg.h>
 
-/**
- * @brief Provides no HTTP support.
- *
- * @param request An internal HTTP builder with data to build and send HTTP request.
- * @param ref_response A pre-allocated buffer where the HTTP response will be written.
- * @retval An #az_result value indicating the result of the operation:
- *         - #AZ_OK if successful
- */
 AZ_NODISCARD az_result
-az_http_client_send_request(_az_http_request const* request, az_http_response* ref_response)
+az_http_client_send_request(az_http_request const* request, az_http_response* ref_response)
 {
   (void)request;
   (void)ref_response;
-  return AZ_ERROR_NOT_IMPLEMENTED;
+  return AZ_ERROR_DEPENDENCY_NOT_PROVIDED;
 }

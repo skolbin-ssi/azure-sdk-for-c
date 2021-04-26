@@ -19,7 +19,7 @@ The following aspects need to be handled by the application or convenience layer
 1. Delay execution for retry purposes.
 1. (Optional) Provide real-time clock information and perform HMAC-SHA256 operations for SAS token generation.
 
-For more information about Azure IoT services using MQTT see [this article](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support).
+For more information about Azure IoT services using MQTT see [this article](https://docs.microsoft.com/azure/iot-hub/iot-hub-mqtt-support).
 
 ## Components
 
@@ -29,7 +29,9 @@ For more information about Azure IoT services using MQTT see [this article](http
 
 ### Device Provisioning Service
 
-![iot_provisioning_flow](https://www.plantuml.com/plantuml/svg/0/hLTjRzis4FxENy5ljOUv68Qrm8mYgEmOZTOazYnb65OK12tICc69L4dAZLVil-yeoR8RlqYscmz68DuzTtpk-F3utbYgRPuc29cba1dLDCNmpNBy3M7u6z1e6MkLIpPKYTBltdcJoSqDXjzxV-Y5_lZni5aGJf-68LZUqnMNZ6lq7uGeW2DdGIB5X8ohAEL2SFkHU1F_nPTRB_J8UF37Q1ZYBUwEqKukP3Y-7U4gIHVn5VQbiEZJJvznhtU3wRz4A4iohLR222KX0n8bWajB1DZrSH1wqn0rc3L1nToIt71D94qvQclO1dMJ1CDz_FURNtx7DBUBYbQQPOc8g0KladwnOAoav96jwMYDNIHo1CrHEixSPvhWm0kmLKikSSmbruLr_umu9_Thg2diZOWbjRdci6SNiDZoMNuljhD8QVJhcxVemBUMAMNKcAzACtI6xKbMOMirvdurDybj2Wab2FAPYRIOSNGKyc0yK_iTQPhQe8xsweJDmHYQHroiNBaU_Wn3d8WPhZsOItxAOs4iI48Jyd5sTGLHKfpF4c4MnAfCHEWYhyCxgKn-96H5pZ7wAuHjgO_ORJZUwF4t3BmMT4-U1hXQPOL8jj0-a7t3DvYiJ9zGoM1XdIZA-llGUAvLYcSQJh_6dIXHESDAun6BURS8UqMuriNNt6HA6lv30ZgU-bWgYtSXOCC9L03wjY76NbBjI5TPfPl4LJetgDrUNher1TlQHohD4cuRETlts66fNiJrOiVaKSIDSLqmfo81uUrU66EtsndGl_ukef2kG37GR7Q6W7sVpH4gSjXRRU3hIyxrkkBsWCOqxEkqzscjAOQMoMu7bg3zngcaZtiuJjIC9WGcham9M5WeOvkcaDfPC68Y8BgLSTdlLVb4eUlkTWxTE63GcVTwhnmZ27_EH0MPI_5Ch83KqJKdkyHkk1TQeLJ_rv9yZXJipArd-RcubIwSxRSzN89TutrfVCqj708wTmk6mrJ2BWBPwJ9OoPFJ1-4GoklNFGp35RGRr7QHpreTYcD0ZAz4n2-Wr3bphSkNpqMX-RDrBob6heGfl5EGJnfV0G15YPRE-XegtFc6_aepTCuexHfZG0r_-rldxi4Rze8x3yRZJYqeF-DWGJLdNd4XVUJhRlTS-2LVbwytTBdCxnr2a4XlA_jmaG4lSmeveXFl0X00hbT0u3Eyzu3r7DXaH2jbJtjzgf8it2AkhPWxM_xvnDJj_Bn_Y3yEoMGw_iiFu4djFtuWmtj_z1YIwUY37uIZAGcU1i5mwWz691nF_24wT65_9m07treLpxYJWWEC_5-5NS3bJYM-2nww2Bs7Ri_Jv7y0 "iot_provisioning_flow")
+![iot_provisioning_flow](https://www.plantuml.com/plantuml/svg/hLTjZzeu4FxkN-5lXLEfgjErKb6rQc1HDzVTXIFPgcfLMIOsmIAnKzkXorNtts-SX2mjBo7G_O1MySmpCy-yUFpEMAfjdYO8cQMG6TKqnV3DSlm3OVWRq6WPQvLBDbI9qc_VUfF9rHM6trj_w8N--7w_M11E7uOXIDxI5PUCQ_GVc2Y08oT18iM4Z2ihvK5m_O5u4_-NBzTUw97nuE_HCCHFk5j2MxwGuVXwX2iddSLds9V2eYz_VCMztXMc_nAXBCcqMWaZb0GFI9G8BYqH8DV7GUXDGzGWrWGLSqjompMHDENeLC5JK3TECDp7drwzV8DfRXSLhJJB4X5H2rea_MP1M4d98rlJSJ9suSW1D4VfE7EVQO83By1MBRd4CPTS5zBz5dQEnckeAUIDY2MrkUOGipDOXDnAxvTm5YcD_dpr6ktvTg9B6JNckz8CjP0zoYg4LcFkPdFZt2QHa88Wdvb8Ynb71o7tsZErte6YgGLgQy-EoEoreNd4nSgbw-wVCCI9cE5QWpddfpmMni98Q48-pAwk84gAyraYp89ObOa8dQMrFv9Av7T2LkGSehz2U4hr0RaDnvjv_0DeBTYUF0nmTSYA6Nd2w8EfR_W6afNU4oeP7AmJHLb_5nhFjKhnJ4FpQzo94fKph3GUiPXt2xCNc3ivzvgRJ4d3Vuj1nrCVIsNnDWG4d402e6mRREmurHI5ogg12GsRPWctlD76higMv_KXhWyx9eyYRepBp9oA16PXzqmRsmN8W9BrJnQ5TAJ54BhPkfTtTJPLNVYmSzf0sBUSwpLnqBdPq_ODSHtNFjx-nHunsQwA4hJVk2ZqSG_7YPhHXC0Ib2a11mjbRDDYK2iBHam4H9yaNDPWbJvHZ5ftOORkXZQevLNRAszsmXypKK7cKZmIAy1rT4ctbTWDe_eabEh_UagsQS-jLRALdhDRbb5xlQVc4kmIxNFjQswX2UZS7HWEYm8x2sIhoWhY-sr1NhpeOLXteDeWjOjyTb9F709YV2KYVWQZJfbhNRv5pZBD7wrxsp1o8KoXdSBqfF45092JQEcaBw72jJSaDSrGc-NMrSM06lxwhyxDdJVi1JSUBAoTUfuyny62QiwyuZxwmDVTRblu9L-Nxobq_fJVwK6OaDxJr8Tx37YPK_0H7TdKeV-vNW61Z_020zPpO9CHhPGzhlMbSh9GYxYsOkva-TSZUx3JypuJVnoIoNJyqG_WaUlVloV3Mtzq7vBfwBqVXACf2Hu6mN3g3qOa74_y8TftN__K_tjVFnNFk9E20YpXtuLTmDrE9Ru9xhe8lODgpzFaVm00 "iot_provisioning_flow")
+
+
 
 ## Porting the IoT Clients
 
@@ -46,7 +48,8 @@ Optionally, the IoT services support MQTT tunneling over WebSocket Secure which 
 
 ### Connecting
 
-The application code is required to initialize the TLS and MQTT stacks.
+The application code is required to initialize the TLS and MQTT stacks. Detailed information about TLS over TCP/IP requirements can be found at https://docs.microsoft.com/azure/iot-hub/iot-hub-tls-support.
+
 Two authentication schemes are currently supported: _X509 Client Certificate Authentication_ and _Shared Access Signature_ authentication.
 
 When X509 client authentication is used, the MQTT password field should be an empty string.
@@ -56,14 +59,14 @@ If SAS tokens are used the following APIs provide a way to create as well as ref
 _Example:_
 
 ```C
-if(az_failed(az_iot_hub_client_sas_get_signature(client, unix_time + 3600, signature, &signature)));
+if(az_result_failed(az_iot_hub_client_sas_get_signature(client, unix_time + 3600, signature, &signature)));
 {
     // error.
 }
 
 // Application will Base64Encode the HMAC256 of the az_span_ptr(signature) containing az_span_size(signature) bytes with the Shared Access Key.
 
-if(az_failed(az_iot_hub_client_sas_get_password(client, base64_hmac_sha256_signature, NULL, password, password_size, &password_length)))
+if(az_result_failed(az_iot_hub_client_sas_get_password(client, NULL, base64_hmac_sha256_signature, password, password_size, &password_length)))
 {
     // error.
 }
@@ -75,7 +78,7 @@ Recommended defaults:
 
 #### MQTT Clean Session
 
-We recommend to always use [Clean Session](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718030) false when connecting to IoT Hub.
+We recommend to always use [Clean Session](https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718030) false when connecting to IoT Hub.
 Connecting with Clean Session true will remove all enqueued C2D messages.
 
 ### Subscribe to Topics
@@ -99,7 +102,7 @@ The application is responsible for filling in the MQTT payload with the format e
 _Example:_
 
 ```C
-if(az_failed(az_iot_hub_client_telemetry_get_publish_topic(client, NULL, topic, topic_size, NULL)))
+if(az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(client, NULL, topic, topic_size, NULL)))
 {
     // error.
 }
@@ -120,19 +123,19 @@ _Example:_
 
     //az_span received_topic is filled by the application.
 
-    if (az_succeeded(az_iot_hub_client_c2d_parse_received_topic(client, received_topic, &c2d_request)))
+    if (az_result_succeeded(az_iot_hub_client_c2d_parse_received_topic(client, received_topic, &c2d_request)))
     {
-        // This is a C2D message: 
+        // This is a C2D message:
         //  c2d_request.properties contain the properties of the message.
         //  the MQTT message payload contains the data.
     }
-    else if (az_succeeded(ret = az_iot_hub_client_methods_parse_received_topic(client, received_topic, &method_request)))
+    else if (az_result_succeeded(ret = az_iot_hub_client_methods_parse_received_topic(client, received_topic, &method_request)))
     {
         // This is a Method request:
         //  method_request.name contains the method
         //  method_request.request_id contains the request ID that must be used to submit the response using az_iot_hub_client_methods_response_get_publish_topic()
     }
-    else if (az_succeeded(ret = az_iot_hub_client_twin_parse_received_topic(client, received_topic, &twin_response)))
+    else if (az_result_succeeded(ret = az_iot_hub_client_twin_parse_received_topic(client, received_topic, &twin_response)))
     {
         // This is a Twin operation.
         switch (twin_response.response_type)
@@ -165,7 +168,7 @@ The SDK will not handle protocol-level (WebSocket, MQTT, TLS or TCP) errors. The
 - Operations failing due to authentication errors should not be retried.
 - Operations failing due to communication-related errors other than ones security-related (e.g. TLS Alert) may be retried.
 
-Both IoT Hub and Provisioning services will use `MQTT CONNACK` as described in Section 3.2.2.3 of the [MQTT v3 specification](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Table_3.1_-).
+Both IoT Hub and Provisioning services will use `MQTT CONNACK` as described in Section 3.2.2.3 of the [MQTT v3 specification](https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Table_3.1_-).
 
 ##### IoT Service Errors
 
@@ -175,13 +178,13 @@ The following APIs may be used to determine if the status indicates an error and
 
 ```C
 az_iot_status status = response.status;
-if (az_iot_is_success_status(status))
+if (az_iot_status_succeeded(status))
 {
     // success case
 }
 else
 {
-    if (az_iot_is_retriable_status(status))
+    if (az_iot_status_retriable(status))
     {
         // retry
     }
@@ -194,27 +197,27 @@ else
 
 #### Retry Timing
 
-Network timeouts and the MQTT keep-alive interval should be configured considering tradeoffs between how fast network issues are detected vs traffic overheads. [This document](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#default-keep-alive-timeout) describes the recommended keep-alive timeouts as well as the minimum idle timeout supported by Azure IoT services.
+Network timeouts and the MQTT keep-alive interval should be configured considering tradeoffs between how fast network issues are detected vs traffic overheads. [This document](https://docs.microsoft.com/azure/iot-hub/iot-hub-mqtt-support#default-keep-alive-timeout) describes the recommended keep-alive timeouts as well as the minimum idle timeout supported by Azure IoT services.
 
 For connectivity issues at all layers (TCP, TLS, MQTT) as well as cases where there is no `retry-after` sent by the service, we suggest using an exponential back-off with random jitter function. `az_iot_retry_calc_delay` is available in Azure IoT Common:
 
 ```C
 // The previous operation took operation_msec.
-// The application calculates random_msec between 0 and max_random_msec.
+// The application calculates random_jitter_msec between 0 and max_random_jitter_msec.
 
-int32_t delay_msec = az_iot_retry_calc_delay(operation_msec, attempt, min_retry_delay_msec, max_retry_delay_msec, random_msec);
+int32_t delay_msec = az_iot_calculate_retry_delay(operation_msec, attempt, min_retry_delay_msec, max_retry_delay_msec, random_jitter_msec);
 ```
 
 _Note 1_: The network stack may have used more time than the recommended delay before timing out. (e.g. The operation timed out after 2 minutes while the delay between operations is 1 second). In this case there is no need to delay the next operation.
 
-_Note 2_: To determine the parameters of the exponential with back-off retry strategy, we recommend modeling the network characteristics (including failure-modes). Compare the results with defined SLAs for device connectivity (e.g. 1M devices must be connected in under 30 minutes) and with the available [IoT Azure scale](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-quotas-throttling) (especially consider _throttling_, _quotas_ and maximum _requests/connects per second_).
+_Note 2_: To determine the parameters of the exponential with back-off retry strategy, we recommend modeling the network characteristics (including failure-modes). Compare the results with defined SLAs for device connectivity (e.g. 1M devices must be connected in under 30 minutes) and with the available [IoT Azure scale](https://docs.microsoft.com/azure/iot-hub/iot-hub-devguide-quotas-throttling) (especially consider _throttling_, _quotas_ and maximum _requests/connects per second_).
 
 In the absence of modeling, we recommend the following default:
 
 ```C
-    min_retry_delay_msec =   1000;
-    max_retry_delay_msec = 100000;
-    max_random_msec      =   5000;
+    min_retry_delay_msec =     1000;
+    max_retry_delay_msec =   100000;
+    max_random_jitter_msec =   5000;
 ```
 
 For service-level errors, the Provisioning Service is providing a `retry-after` (in seconds) parameter:
@@ -229,7 +232,7 @@ if ( response.retry_after_seconds > 0 )
 }
 else
 {
-    delay_ms = az_iot_retry_calc_delay(operation_msec, attempt, min_retry_delay_msec, max_retry_delay_msec, random_msec);
+    delay_ms = az_iot_calculate_retry_delay(operation_msec, attempt, min_retry_delay_msec, max_retry_delay_msec, random_jitter_msec);
 }
 ```
 

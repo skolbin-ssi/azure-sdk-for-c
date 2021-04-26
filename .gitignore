@@ -23,6 +23,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+out/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -269,8 +270,10 @@ paket-files/
 __pycache__/
 *.pyc
 
+# CI Build Artifacts
+/tools
+
 # Cake - Uncomment if you are using it
-# tools/**
 # !tools/packages.config
 
 # Tabs Studio
@@ -298,11 +301,12 @@ ASALocalRun/
 .mfractor/
 
 # CMake
-build/
+/build/
 /cmake-build-debug
 
-#Doxygen
-/[Dd]ocs/
+# Doxygen
+**/[Dd]oc/generated_doxygen_docs
+DoxygenWarningLog.txt
 
 # VS Code Files
 .vscode
@@ -312,3 +316,9 @@ build/
 
 # Cert fingerprint output
 fingerprint.txt
+
+# Swap Files
+*.swp
+
+# vcpkg
+/vcpkg

@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 #include "az_http_header_validation_private.h"
-#include "az_json_string_private.h"
 #include "az_test_definitions.h"
-#include <azure/core/az_http.h>
-#include <azure/core/internal/az_http_internal.h>
 #include <az_http_private.h>
+#include <azure/core/az_http.h>
 #include <azure/core/az_http_transport.h>
 #include <azure/core/az_json.h>
 #include <azure/core/az_span.h>
+#include <azure/core/internal/az_http_internal.h>
 
 #include <azure/core/az_precondition.h>
 #include <azure/core/internal/az_precondition_internal.h>
@@ -22,7 +21,7 @@
 
 #include <azure/core/_az_cfg.h>
 
-#define TEST_EXPECT_SUCCESS(exp) assert_true(az_succeeded(exp))
+#define TEST_EXPECT_SUCCESS(exp) assert_true(az_result_succeeded(exp))
 
 static az_span request_url
     = AZ_SPAN_LITERAL_FROM_STR("https://antk-keyvault.vault.azure.net/secrets/Password");
@@ -53,7 +52,7 @@ static void test_http_request(void** state)
   (void)state;
   {
     uint8_t buf[100];
-    uint8_t header_buf[(2 * sizeof(az_pair))];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
     memset(buf, 0, sizeof(buf));
     memset(header_buf, 0, sizeof(header_buf));
 
@@ -61,11 +60,11 @@ static void test_http_request(void** state)
     az_span remainder = az_span_copy(url_span, request_url);
     assert_int_equal(az_span_size(remainder), 100 - az_span_size(request_url));
     az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
-    _az_http_request request;
+    az_http_request request;
 
     TEST_EXPECT_SUCCESS(az_http_request_init(
         &request,
-        &az_context_app,
+        &az_context_application,
         az_http_method_get(),
         url_span,
         az_span_size(request_url),
@@ -79,13 +78,13 @@ static void test_http_request(void** state)
     assert_true(request._internal.retry_headers_start_byte_offset == 0);
 
     TEST_EXPECT_SUCCESS(az_http_request_set_query_parameter(
-        &request, request_param_api_version_name, request_param_api_version_token));
+        &request, request_param_api_version_name, request_param_api_version_token, true));
     assert_int_equal(request._internal.url_length, az_span_size(request_url2));
     assert_true(az_span_is_content_equal(
         az_span_slice(request._internal.url, 0, request._internal.url_length), request_url2));
 
     TEST_EXPECT_SUCCESS(az_http_request_set_query_parameter(
-        &request, request_param_test_param_name, request_param_test_param_token));
+        &request, request_param_test_param_name, request_param_test_param_token, true));
     assert_int_equal(request._internal.url_length, az_span_size(request_url3));
     assert_true(az_span_is_content_equal(
         az_span_slice(request._internal.url, 0, request._internal.url_length), request_url3));
@@ -96,52 +95,72 @@ static void test_http_request(void** state)
     assert_true(request._internal.retry_headers_start_byte_offset == 0);
 
     TEST_EXPECT_SUCCESS(_az_http_request_mark_retry_headers_start(&request));
-    assert_int_equal(request._internal.retry_headers_start_byte_offset, sizeof(az_pair));
+    assert_int_equal(
+        request._internal.retry_headers_start_byte_offset, sizeof(_az_http_request_header));
 
     TEST_EXPECT_SUCCESS(az_http_request_append_header(
         &request, request_header_authorization_name, request_header_authorization_token1));
 
-    assert_true(az_span_size(request._internal.headers) / (int32_t)sizeof(az_pair) == 2);
-    assert_true(request._internal.retry_headers_start_byte_offset == sizeof(az_pair));
+    assert_true(
+        az_span_size(request._internal.headers) / (int32_t)sizeof(_az_http_request_header) == 2);
 
-    az_pair expected_headers1[2] = {
-      { .key = request_header_content_type_name, .value = request_header_content_type_token },
-      { .key = request_header_authorization_name, .value = request_header_authorization_token1 },
+    assert_true(
+        request._internal.retry_headers_start_byte_offset == sizeof(_az_http_request_header));
+
+    az_span expected_header_names1[2] = {
+      request_header_content_type_name,
+      request_header_authorization_name,
     };
-    for (uint16_t i = 0; i < az_span_size(request._internal.headers) / (int32_t)sizeof(az_pair);
+
+    az_span expected_header_values1[2] = {
+      request_header_content_type_token,
+      request_header_authorization_token1,
+    };
+
+    for (uint16_t i = 0;
+         i < az_span_size(request._internal.headers) / (int32_t)sizeof(_az_http_request_header);
          ++i)
     {
-      az_pair header = { 0 };
-      TEST_EXPECT_SUCCESS(az_http_request_get_header(&request, i, &header));
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      TEST_EXPECT_SUCCESS(az_http_request_get_header(&request, i, &header_name, &header_value));
 
-      assert_true(az_span_is_content_equal(header.key, expected_headers1[i].key));
-      assert_true(az_span_is_content_equal(header.value, expected_headers1[i].value));
+      assert_true(az_span_is_content_equal(header_name, expected_header_names1[i]));
+      assert_true(az_span_is_content_equal(header_value, expected_header_values1[i]));
     }
 
     TEST_EXPECT_SUCCESS(_az_http_request_remove_retry_headers(&request));
-    assert_true(request._internal.retry_headers_start_byte_offset == sizeof(az_pair));
+    assert_true(
+        request._internal.retry_headers_start_byte_offset == sizeof(_az_http_request_header));
 
     TEST_EXPECT_SUCCESS(az_http_request_append_header(
         &request, request_header_authorization_name, request_header_authorization_token2));
     assert_int_equal(request._internal.headers_length, 2);
-    assert_int_equal(az_span_size(request._internal.headers) / (int32_t)sizeof(az_pair), 2);
-    assert_true(request._internal.retry_headers_start_byte_offset == sizeof(az_pair));
+    assert_int_equal(
+        az_span_size(request._internal.headers) / (int32_t)sizeof(_az_http_request_header), 2);
+    assert_true(
+        request._internal.retry_headers_start_byte_offset == sizeof(_az_http_request_header));
 
-    az_pair expected_headers2[2] = {
-      { .key = request_header_content_type_name, .value = request_header_content_type_token },
-      { .key = request_header_authorization_name, .value = request_header_authorization_token2 },
+    az_span expected_header_names2[2] = {
+      request_header_content_type_name,
+      request_header_authorization_name,
     };
-    for (uint16_t i = 0; i < az_span_size(request._internal.headers) / (int32_t)sizeof(az_pair);
+
+    az_span expected_header_values2[2] = {
+      request_header_content_type_token,
+      request_header_authorization_token2,
+    };
+    for (uint16_t i = 0;
+         i < az_span_size(request._internal.headers) / (int32_t)sizeof(_az_http_request_header);
          ++i)
     {
-      az_pair header = { 0 };
-      TEST_EXPECT_SUCCESS(az_http_request_get_header(&request, i, &header));
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      TEST_EXPECT_SUCCESS(az_http_request_get_header(&request, i, &header_name, &header_value));
 
-      assert_true(az_span_is_content_equal(header.key, expected_headers2[i].key));
-      assert_true(az_span_is_content_equal(header.value, expected_headers2[i].value));
+      assert_true(az_span_is_content_equal(header_name, expected_header_names2[i]));
+      assert_true(az_span_is_content_equal(header_value, expected_header_values2[i]));
     }
-
-    assert_return_code(az_http_request_append_path(&request, AZ_SPAN_FROM_STR("path")), AZ_OK);
 
     az_http_method method;
     az_span body;
@@ -153,12 +172,12 @@ static void test_http_request(void** state)
     assert_string_equal(az_span_ptr(body), az_span_ptr(AZ_SPAN_FROM_STR("body")));
     assert_string_equal(
         az_span_ptr(url),
-        az_span_ptr(AZ_SPAN_FROM_STR("https://antk-keyvault.vault.azure.net/secrets/Password/"
-                                     "path?api-version=7.0&test-param=token")));
+        az_span_ptr(AZ_SPAN_FROM_STR("https://antk-keyvault.vault.azure.net/secrets/Password"
+                                     "?api-version=7.0&test-param=token")));
   }
   {
     uint8_t buf[100];
-    uint8_t header_buf[(2 * sizeof(az_pair))];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
     memset(buf, 0, sizeof(buf));
     memset(header_buf, 0, sizeof(header_buf));
 
@@ -166,11 +185,11 @@ static void test_http_request(void** state)
     az_span remainder = az_span_copy(url_span, request_url);
     assert_int_equal(az_span_size(remainder), 100 - az_span_size(request_url));
     az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
-    _az_http_request request;
+    az_http_request request;
 
     TEST_EXPECT_SUCCESS(az_http_request_init(
         &request,
-        &az_context_app,
+        &az_context_application,
         az_http_method_get(),
         url_span,
         az_span_size(request_url),
@@ -179,11 +198,232 @@ static void test_http_request(void** state)
 
     // Empty header
     assert_return_code(
-        az_http_request_append_header(&request, AZ_SPAN_FROM_STR("header"), AZ_SPAN_NULL), AZ_OK);
+        az_http_request_append_header(&request, AZ_SPAN_FROM_STR("header"), AZ_SPAN_EMPTY), AZ_OK);
+  }
+  { // Test adding duplicated query parameters
+    uint8_t buf[100];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
+    memset(buf, 0, sizeof(buf));
+    memset(header_buf, 0, sizeof(header_buf));
+
+    az_span url_span = AZ_SPAN_FROM_BUFFER(buf);
+    az_span initial_url = AZ_SPAN_FROM_STR("http://example.com");
+    az_span remainder = az_span_copy(url_span, initial_url);
+    assert_int_equal(az_span_size(remainder), 100 - az_span_size(initial_url));
+    az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
+    az_http_request request;
+
+    TEST_EXPECT_SUCCESS(az_http_request_init(
+        &request,
+        &az_context_application,
+        az_http_method_get(),
+        url_span,
+        az_span_size(initial_url),
+        header_span,
+        AZ_SPAN_FROM_STR("body")));
+
+    // set qp
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q1"), AZ_SPAN_FROM_STR("v1"), true),
+        AZ_OK);
+
+    {
+      az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=v1");
+      uint8_t result[100];
+      az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+      assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+      assert_true(az_span_is_content_equal(url_result, expected_url));
+    }
+
+    // set same qp new value. Generate duplicate
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q1"), AZ_SPAN_FROM_STR("value1"), true),
+        AZ_OK);
+
+    az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=v1&q1=value1");
+    uint8_t result[100];
+    az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+    assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+    assert_true(az_span_is_content_equal(url_result, expected_url));
+  }
+  { // Test adding duplicated query parameters
+    uint8_t buf[100];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
+    memset(buf, 0, sizeof(buf));
+    memset(header_buf, 0, sizeof(header_buf));
+
+    az_span url_span = AZ_SPAN_FROM_BUFFER(buf);
+    az_span initial_url = AZ_SPAN_FROM_STR("http://example.com?q1=");
+    az_span remainder = az_span_copy(url_span, initial_url);
+    assert_int_equal(az_span_size(remainder), 100 - az_span_size(initial_url));
+    az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
+    az_http_request request;
+
+    TEST_EXPECT_SUCCESS(az_http_request_init(
+        &request,
+        &az_context_application,
+        az_http_method_get(),
+        url_span,
+        az_span_size(initial_url),
+        header_span,
+        AZ_SPAN_FROM_STR("body")));
+
+    // set same qp new value
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q1"), AZ_SPAN_FROM_STR("value1"), true),
+        AZ_OK);
+
+    az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=&q1=value1");
+    uint8_t result[100];
+    az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+    assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+    assert_true(az_span_is_content_equal(url_result, expected_url));
+  }
+  { // Test adding duplicated query parameters same value
+    uint8_t buf[100];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
+    memset(buf, 0, sizeof(buf));
+    memset(header_buf, 0, sizeof(header_buf));
+
+    az_span url_span = AZ_SPAN_FROM_BUFFER(buf);
+    az_span initial_url = AZ_SPAN_FROM_STR("http://example.com?q1=123");
+    az_span remainder = az_span_copy(url_span, initial_url);
+    assert_int_equal(az_span_size(remainder), 100 - az_span_size(initial_url));
+    az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
+    az_http_request request;
+
+    TEST_EXPECT_SUCCESS(az_http_request_init(
+        &request,
+        &az_context_application,
+        az_http_method_get(),
+        url_span,
+        az_span_size(initial_url),
+        header_span,
+        AZ_SPAN_FROM_STR("body")));
+
+    // set same qp new value
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q1"), AZ_SPAN_FROM_STR("123"), true),
+        AZ_OK);
+
+    az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=123&q1=123");
+    uint8_t result[100];
+    az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+    assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+    assert_true(az_span_is_content_equal(url_result, expected_url));
+  }
+  { // Test adding duplicated query parameter multiple qp
+    uint8_t buf[100];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
+    memset(buf, 0, sizeof(buf));
+    memset(header_buf, 0, sizeof(header_buf));
+
+    az_span url_span = AZ_SPAN_FROM_BUFFER(buf);
+    az_span initial_url = AZ_SPAN_FROM_STR("http://example.com?q1=123&q2=456");
+    az_span remainder = az_span_copy(url_span, initial_url);
+    assert_int_equal(az_span_size(remainder), 100 - az_span_size(initial_url));
+    az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
+    az_http_request request;
+
+    TEST_EXPECT_SUCCESS(az_http_request_init(
+        &request,
+        &az_context_application,
+        az_http_method_get(),
+        url_span,
+        az_span_size(initial_url),
+        header_span,
+        AZ_SPAN_FROM_STR("body")));
+
+    // set same qp new value
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q1"), AZ_SPAN_FROM_STR("value1"), true),
+        AZ_OK);
+
+    az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=123&q2=456&q1=value1");
+    uint8_t result[100];
+    az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+    assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+    assert_true(az_span_is_content_equal(url_result, expected_url));
+  }
+  { // Test adding duplicated query parameter multiple qp
+    uint8_t buf[100];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
+    memset(buf, 0, sizeof(buf));
+    memset(header_buf, 0, sizeof(header_buf));
+
+    az_span url_span = AZ_SPAN_FROM_BUFFER(buf);
+    az_span initial_url = AZ_SPAN_FROM_STR("http://example.com?q1=123&q2=456");
+    az_span remainder = az_span_copy(url_span, initial_url);
+    assert_int_equal(az_span_size(remainder), 100 - az_span_size(initial_url));
+    az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
+    az_http_request request;
+
+    TEST_EXPECT_SUCCESS(az_http_request_init(
+        &request,
+        &az_context_application,
+        az_http_method_get(),
+        url_span,
+        az_span_size(initial_url),
+        header_span,
+        AZ_SPAN_FROM_STR("body")));
+
+    // set same qp new value
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q3"), AZ_SPAN_FROM_STR("value3"), true),
+        AZ_OK);
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q2"), AZ_SPAN_FROM_STR("2"), true),
+        AZ_OK);
+
+    az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=123&q2=456&q3=value3&q2=2");
+    uint8_t result[100];
+    az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+    assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+    assert_true(az_span_is_content_equal(url_result, expected_url));
+  }
+  { // Test setting query parameter url-encode
+    uint8_t buf[100];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
+    memset(buf, 0, sizeof(buf));
+    memset(header_buf, 0, sizeof(header_buf));
+
+    az_span url_span = AZ_SPAN_FROM_BUFFER(buf);
+    az_span initial_url = AZ_SPAN_FROM_STR("http://example.com");
+    az_span remainder = az_span_copy(url_span, initial_url);
+    assert_int_equal(az_span_size(remainder), 100 - az_span_size(initial_url));
+    az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
+    az_http_request request;
+
+    TEST_EXPECT_SUCCESS(az_http_request_init(
+        &request,
+        &az_context_application,
+        az_http_method_get(),
+        url_span,
+        az_span_size(initial_url),
+        header_span,
+        AZ_SPAN_FROM_STR("body")));
+
+    assert_return_code(
+        az_http_request_set_query_parameter(
+            &request, AZ_SPAN_FROM_STR("q1"), AZ_SPAN_FROM_STR("space here"), false),
+        AZ_OK);
+
+    az_span expected_url = AZ_SPAN_FROM_STR("http://example.com?q1=space%20here");
+    uint8_t result[100];
+    az_span url_result = AZ_SPAN_FROM_BUFFER(result);
+    assert_return_code(az_http_request_get_url(&request, &url_result), AZ_OK);
+    assert_true(az_span_is_content_equal(url_result, expected_url));
   }
   {
     uint8_t buf[100];
-    uint8_t header_buf[(2 * sizeof(az_pair))];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
     memset(buf, 0, sizeof(buf));
     memset(header_buf, 0, sizeof(header_buf));
 
@@ -191,11 +431,11 @@ static void test_http_request(void** state)
     az_span remainder = az_span_copy(url_span, request_url);
     assert_int_equal(az_span_size(remainder), 100 - az_span_size(request_url));
     az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
-    _az_http_request request;
+    az_http_request request;
 
     TEST_EXPECT_SUCCESS(az_http_request_init(
         &request,
-        &az_context_app,
+        &az_context_application,
         az_http_method_get(),
         url_span,
         az_span_size(request_url),
@@ -204,17 +444,18 @@ static void test_http_request(void** state)
 
     // Remove empty spaces from the left of header name
     assert_return_code(
-        az_http_request_append_header(&request, AZ_SPAN_FROM_STR(" \t\r\nheader"), AZ_SPAN_NULL),
+        az_http_request_append_header(&request, AZ_SPAN_FROM_STR(" \t\r\nheader"), AZ_SPAN_EMPTY),
         AZ_OK);
 
-    az_pair header = { 0 };
-    assert_return_code(az_http_request_get_header(&request, 0, &header), AZ_OK);
-    assert_true(az_span_is_content_equal(header.key, AZ_SPAN_FROM_STR("header")));
+    az_span header_name = { 0 };
+    az_span header_value = { 0 };
+    assert_return_code(az_http_request_get_header(&request, 0, &header_name, &header_value), AZ_OK);
+    assert_true(az_span_is_content_equal(header_name, AZ_SPAN_FROM_STR("header")));
   }
 }
 
-#define EXAMPLE_BODY \
-  "{\r\n" \
+#define EXAMPLE_BODY    \
+  "{\r\n"               \
   "  \"somejson\":45\r" \
   "}\n"
 
@@ -243,9 +484,10 @@ static void test_http_response(void** state)
     }
     // try to read a header
     {
-      az_pair header = { 0 };
-      result = az_http_response_get_next_header(&response, &header);
-      assert_true(result == AZ_ERROR_ITEM_NOT_FOUND);
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_true(result == AZ_ERROR_HTTP_END_OF_HEADERS);
     }
     // read a body
     {
@@ -280,25 +522,34 @@ static void test_http_response(void** state)
     }
     // read a header1
     {
-      az_pair header = { 0 };
-      result = az_http_response_get_next_header(&response, &header);
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      result = az_http_response_get_next_header(&response, &header_name, &header_value);
       assert_true(result == AZ_OK);
-      assert_true(az_span_is_content_equal(header.key, AZ_SPAN_FROM_STR("header1")));
-      assert_true(az_span_is_content_equal(header.value, AZ_SPAN_FROM_STR("some value")));
+      assert_true(az_span_is_content_equal(header_name, AZ_SPAN_FROM_STR("header1")));
+      assert_true(az_span_is_content_equal(header_value, AZ_SPAN_FROM_STR("some value")));
     }
     // read a Header2
     {
-      az_pair header = { 0 };
-      result = az_http_response_get_next_header(&response, &header);
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      result = az_http_response_get_next_header(&response, &header_name, &header_value);
       assert_true(result == AZ_OK);
-      assert_true(az_span_is_content_equal(header.key, AZ_SPAN_FROM_STR("Header2")));
-      assert_true(az_span_is_content_equal(header.value, AZ_SPAN_FROM_STR("something")));
+      assert_true(az_span_is_content_equal(header_name, AZ_SPAN_FROM_STR("Header2")));
+      assert_true(az_span_is_content_equal(header_value, AZ_SPAN_FROM_STR("something")));
     }
     // try to read a header
     {
-      az_pair header = { 0 };
-      result = az_http_response_get_next_header(&response, &header);
-      assert_true(result == AZ_ERROR_ITEM_NOT_FOUND);
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_true(result == AZ_ERROR_HTTP_END_OF_HEADERS);
+
+      // Subsequent reads do nothing.
+      result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_true(result == AZ_ERROR_HTTP_END_OF_HEADERS);
+      result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_true(result == AZ_ERROR_HTTP_END_OF_HEADERS);
     }
     // read a body
     {
@@ -309,34 +560,99 @@ static void test_http_response(void** state)
     }
   }
 
-  az_span response_span = AZ_SPAN_FROM_STR( //
-      "HTTP/1.1 200 Ok\r\n"
-      "Content-Type: text/html; charset=UTF-8\r\n"
-      "\r\n"
-      // body
-      EXAMPLE_BODY);
-
-  az_http_response response = { 0 };
-  az_result const result = az_http_response_init(&response, response_span);
-  assert_true(result == AZ_OK);
-
-  // add parsing here
+  // Processing valid response
   {
-    az_span body;
-    TEST_EXPECT_SUCCESS(az_http_response_get_body(&response, &body));
-    assert_true(az_span_is_content_equal(body, AZ_SPAN_FROM_STR(EXAMPLE_BODY)));
+    az_span response_span = AZ_SPAN_FROM_STR( //
+        "HTTP/1.1 200 Ok\r\n"
+        "Content-Type: text/html; charset=UTF-8\r\n"
+        "\r\n"
+        // body
+        EXAMPLE_BODY);
+
+    az_http_response response = { 0 };
+    az_result const result = az_http_response_init(&response, response_span);
+    assert_true(result == AZ_OK);
+
+    // get body directly
+    {
+      az_span body;
+      TEST_EXPECT_SUCCESS(az_http_response_get_body(&response, &body));
+      assert_true(az_span_is_content_equal(body, AZ_SPAN_FROM_STR(EXAMPLE_BODY)));
+    }
+  }
+
+  // Bad response. Will get first part right and will block reading beyond the digits
+  {
+    az_span response_span = AZ_SPAN_FROM_STR( //
+        "HTTP/");
+
+    az_http_response response = { 0 };
+    az_result const result = az_http_response_init(&response, response_span);
+    assert_true(result == AZ_OK);
+
+    // read a status line
+    {
+      az_http_response_status_line status_line = { 0 };
+      az_result get_result = az_http_response_get_status_line(&response, &status_line);
+      assert_true(get_result == AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER);
+    }
+  }
+
+  // Bad response. handle unexpected end when getting headers
+  {
+    az_span response_span = AZ_SPAN_FROM_STR( //
+        "HTTP/2.0 205 \r\n");
+
+    az_http_response response = { 0 };
+    az_result const result = az_http_response_init(&response, response_span);
+    assert_int_equal(result, AZ_OK);
+
+    // read a status line
+    {
+      az_http_response_status_line status_line = { 0 };
+      az_result get_result = az_http_response_get_status_line(&response, &status_line);
+      assert_true(get_result == AZ_OK);
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      get_result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_int_equal(get_result, AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER);
+    }
+  }
+
+  // Bad response. handle unexpected end after getting one header
+  {
+    az_span response_span = AZ_SPAN_FROM_STR( //
+        "HTTP/2.0 205 \r\n"
+        "header: 1\r\n");
+
+    az_http_response response = { 0 };
+    az_result const result = az_http_response_init(&response, response_span);
+    assert_true(result == AZ_OK);
+
+    // read a status line
+    {
+      az_http_response_status_line status_line = { 0 };
+      az_result get_result = az_http_response_get_status_line(&response, &status_line);
+      assert_true(get_result == AZ_OK);
+      az_span header_name = { 0 };
+      az_span header_value = { 0 };
+      get_result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_true(get_result == AZ_OK); // first header is fine
+      get_result = az_http_response_get_next_header(&response, &header_name, &header_value);
+      assert_true(get_result == AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER);
+    }
   }
 }
 
 #ifndef AZ_NO_PRECONDITION_CHECKING
 ENABLE_PRECONDITION_CHECK_TESTS()
 
-static void test_http_request_removing_left_white_spaces(void** state)
+static void test_http_request_removing_left_whitespace_chars(void** state)
 {
   (void)state;
 
   uint8_t buf[100];
-  uint8_t header_buf[(2 * sizeof(az_pair))];
+  uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
   memset(buf, 0, sizeof(buf));
   memset(header_buf, 0, sizeof(header_buf));
 
@@ -344,36 +660,36 @@ static void test_http_request_removing_left_white_spaces(void** state)
   az_span remainder = az_span_copy(url_span, request_url);
   assert_int_equal(az_span_size(remainder), 100 - az_span_size(request_url));
   az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
-  _az_http_request request;
+  az_http_request request;
 
   TEST_EXPECT_SUCCESS(az_http_request_init(
       &request,
-      &az_context_app,
+      &az_context_application,
       az_http_method_get(),
       url_span,
       az_span_size(request_url),
       header_span,
       AZ_SPAN_FROM_STR("body")));
 
-  // Nothing but empty name - should hit precondion
+  // Nothing but empty name - should hit precondition
   ASSERT_PRECONDITION_CHECKED(
-      az_http_request_append_header(&request, AZ_SPAN_FROM_STR(" \t\r"), AZ_SPAN_NULL));
+      az_http_request_append_header(&request, AZ_SPAN_FROM_STR(" \t\r"), AZ_SPAN_EMPTY));
 }
 
 static void test_http_request_header_validation(void** state)
 {
   (void)state;
   {
-    uint8_t header_buf[(2 * sizeof(az_pair))];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
     memset(header_buf, 0, sizeof(header_buf));
 
     az_span url_span = AZ_SPAN_FROM_STR("some.url.com");
     az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
-    _az_http_request request;
+    az_http_request request;
 
     TEST_EXPECT_SUCCESS(az_http_request_init(
         &request,
-        &az_context_app,
+        &az_context_application,
         az_http_method_get(),
         url_span,
         az_span_size(url_span),
@@ -395,16 +711,16 @@ static void test_http_request_header_validation_above_127(void** state)
 {
   (void)state;
   {
-    uint8_t header_buf[(2 * sizeof(az_pair))];
+    uint8_t header_buf[(2 * sizeof(_az_http_request_header))];
     memset(header_buf, 0, sizeof(header_buf));
 
     az_span url_span = AZ_SPAN_FROM_STR("some.url.com");
     az_span header_span = AZ_SPAN_FROM_BUFFER(header_buf);
-    _az_http_request request;
+    az_http_request request;
 
     TEST_EXPECT_SUCCESS(az_http_request_init(
         &request,
-        &az_context_app,
+        &az_context_application,
         az_http_method_get(),
         url_span,
         az_span_size(url_span),
@@ -466,13 +782,14 @@ static void test_http_response_header_validation(void** state)
 
     az_http_response_status_line status_line = { 0 };
     assert_return_code(az_http_response_get_status_line(&response, &status_line), AZ_OK);
-    for (az_pair header;
-         az_http_response_get_next_header(&response, &header) != AZ_ERROR_ITEM_NOT_FOUND;)
+    for (az_span header_name = { 0 }, header_value = { 0 };
+         az_http_response_get_next_header(&response, &header_name, &header_value)
+         != AZ_ERROR_HTTP_END_OF_HEADERS;)
     {
       // all valid headers
-      assert_true(az_span_ptr(header.key) != NULL);
-      assert_true(az_span_size(header.key) > 0);
-      assert_true(az_span_ptr(header.value) != NULL);
+      assert_true(az_span_ptr(header_name) != NULL);
+      assert_true(az_span_size(header_name) > 0);
+      assert_true(az_span_ptr(header_value) != NULL);
     }
   }
 }
@@ -491,10 +808,71 @@ static void test_http_response_header_validation_fail(void** state)
                              "KKKKKJJJJJIIIIIHHHHHGGGGGFFFFFEEEEEDDDDDCCCCCBBBBBAAAAA")),
         AZ_OK);
 
+    // Can't read the header first, before the status line.
+    az_span header_name = { 0 };
+    az_span header_value = { 0 };
+    assert_int_equal(
+        az_http_response_get_next_header(&response, &header_name, &header_value),
+        AZ_ERROR_HTTP_INVALID_STATE);
+
     az_http_response_status_line status_line = { 0 };
     assert_return_code(az_http_response_get_status_line(&response, &status_line), AZ_OK);
-    az_pair header = { 0 };
-    az_result fail_header_result = az_http_response_get_next_header(&response, &header);
+
+    az_result fail_header_result
+        = az_http_response_get_next_header(&response, &header_name, &header_value);
+    assert_true(AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER == fail_header_result);
+  }
+
+  // Invalid end of header.
+  {
+    az_http_response response = { 0 };
+    assert_return_code(
+        az_http_response_init(
+            &response,
+            AZ_SPAN_FROM_STR("HTTP/1.1 404 Not Found\r\n"
+                             "Header11")),
+        AZ_OK);
+
+    az_http_response_status_line status_line = { 0 };
+    assert_return_code(az_http_response_get_status_line(&response, &status_line), AZ_OK);
+    az_span header_name = { 0 };
+    az_span header_value = { 0 };
+    az_result fail_header_result
+        = az_http_response_get_next_header(&response, &header_name, &header_value);
+    assert_true(AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER == fail_header_result);
+  }
+  {
+    az_http_response response = { 0 };
+    assert_return_code(
+        az_http_response_init(
+            &response,
+            AZ_SPAN_FROM_STR("HTTP/1.1 404 Not Found\r\n"
+                             "Header11: ")),
+        AZ_OK);
+
+    az_http_response_status_line status_line = { 0 };
+    assert_return_code(az_http_response_get_status_line(&response, &status_line), AZ_OK);
+    az_span header_name = { 0 };
+    az_span header_value = { 0 };
+    az_result fail_header_result
+        = az_http_response_get_next_header(&response, &header_name, &header_value);
+    assert_true(AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER == fail_header_result);
+  }
+  {
+    az_http_response response = { 0 };
+    assert_return_code(
+        az_http_response_init(
+            &response,
+            AZ_SPAN_FROM_STR("HTTP/1.1 404 Not Found\r\n"
+                             "Header11: Value11\n")),
+        AZ_OK);
+
+    az_http_response_status_line status_line = { 0 };
+    assert_return_code(az_http_response_get_status_line(&response, &status_line), AZ_OK);
+    az_span header_name = { 0 };
+    az_span header_value = { 0 };
+    az_result fail_header_result
+        = az_http_response_get_next_header(&response, &header_name, &header_value);
     assert_true(AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER == fail_header_result);
   }
 }
@@ -515,11 +893,13 @@ static void test_http_response_header_validation_space(void** state)
 
     az_http_response_status_line status_line = { 0 };
     assert_return_code(az_http_response_get_status_line(&response, &status_line), AZ_OK);
-    az_pair header = { 0 };
+    az_span header_name = { 0 };
+    az_span header_value = { 0 };
     // Spaces in headers are Fine, we trim them
-    assert_return_code(az_http_response_get_next_header(&response, &header), AZ_OK);
-    assert_true(az_span_is_content_equal(header.key, AZ_SPAN_FROM_STR("Header11")));
-    assert_true(az_span_is_content_equal(header.value, AZ_SPAN_FROM_STR("Value11")));
+    assert_return_code(
+        az_http_response_get_next_header(&response, &header_name, &header_value), AZ_OK);
+    assert_true(az_span_is_content_equal(header_name, AZ_SPAN_FROM_STR("Header11")));
+    assert_true(az_span_is_content_equal(header_value, AZ_SPAN_FROM_STR("Value11")));
   }
 }
 
@@ -549,7 +929,7 @@ static void test_http_response_append_overflow(void** state)
     int32_t response_written_state = response._internal.written;
 
     az_result result = az_http_response_append(&response, append_this);
-    assert_true(result == AZ_ERROR_INSUFFICIENT_SPAN_SIZE);
+    assert_true(result == AZ_ERROR_NOT_ENOUGH_SPACE);
 
     // make sure buffer content didn't change
     assert_memory_equal(buffer, "..........", 10);
@@ -571,7 +951,7 @@ static void test_http_response_append_overflow_on_second_call(void** state)
     assert_return_code(az_http_response_append(&response, this_will_fit_once), AZ_OK);
 
     az_result result = az_http_response_append(&response, this_will_fit_once);
-    assert_true(result == AZ_ERROR_INSUFFICIENT_SPAN_SIZE);
+    assert_true(result == AZ_ERROR_NOT_ENOUGH_SPACE);
     assert_memory_equal(buffer, az_span_ptr(this_will_fit_once), 7);
     assert_memory_equal(buffer + 7, "...", 3);
   }
@@ -585,7 +965,7 @@ int test_az_http()
 
   const struct CMUnitTest tests[] = {
 #ifndef AZ_NO_PRECONDITION_CHECKING
-    cmocka_unit_test(test_http_request_removing_left_white_spaces),
+    cmocka_unit_test(test_http_request_removing_left_whitespace_chars),
     cmocka_unit_test(test_http_request_header_validation),
     cmocka_unit_test(test_http_request_header_validation_above_127),
     cmocka_unit_test(test_http_response_append_null_response),

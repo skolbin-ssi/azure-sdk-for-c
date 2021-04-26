@@ -48,6 +48,7 @@ project(az LANGUAGES C)
 enable_testing ()
 
 include(eng/cmake/global_compile_options.txt)
+include(create_map_file)
 
 # Include function for creating code coverage targets
 include(CreateCodeCoverageTargets)
@@ -60,11 +61,14 @@ file(WRITE ${CMAKE_BINARY_DIR}/coverage_targets.txt "")
 
 # Determine platform to build
 if(AZ_PLATFORM_IMPL STREQUAL "WIN32")
-  # build windows platform
   set(PAL az_win32)
 elseif(AZ_PLATFORM_IMPL STREQUAL "POSIX")
-  # build linux platform
   set(PAL az_posix)
+elseif(AZ_PLATFORM_IMPL STREQUAL "CUSTOM")
+  if(NOT DEFINED AZ_CUSTOM_PLATFORM_IMPL_NAME)
+    message(FATAL_ERROR "When using AZ_PLATFORM_IMPL=CUSTOM, AZ_CUSTOM_PLATFORM_IMPL_NAME must be defined as well. See Readme.")
+  endif()
+  set(PAL ${AZ_CUSTOM_PLATFORM_IMPL_NAME})
 else()
   #noplatform
   set(PAL az_noplatform)
@@ -74,24 +78,36 @@ add_subdirectory(sdk/src/azure/core)
 
 # SDK Clients
 add_subdirectory(sdk/src/azure/iot)
-add_subdirectory(sdk/src/azure/storage)
 
 #PAL (Hardware + HTTP)
 add_subdirectory(sdk/src/azure/platform)
 
 # User can disable samples generation by setting env variable AZ_SDK_C_NO_SAMPLES
 if(NOT DEFINED ENV{AZ_SDK_C_NO_SAMPLES})
-  add_subdirectory(sdk/samples/keyvault/keyvault)
-  add_subdirectory(sdk/samples/storage/blobs)
   if(TRANSPORT_PAHO)
-    add_subdirectory(sdk/samples/iot/provisioning)
-    add_subdirectory(sdk/samples/iot/hub)
+    add_subdirectory(sdk/samples/iot)
   endif()
 endif()
 
 # default for Unit testing with cmocka is OFF, however, this will be ON on CI and tests must
-# pass before commiting changes
+# pass before committing changes
 if (UNIT_TESTING)
+  # make generate step fail if cmocka dependency is not found
+  find_package(cmocka CONFIG REQUIRED)
+
+  # When using VCPKG, cmocka lib name is set different than when it is globally installed
+  if(DEFINED ENV{VCPKG_ROOT} OR DEFINED ENV{VCPKG_INSTALLATION_ROOT})
+    set(CMOCKA_LIB ${CMOCKA_LIBRARIES})
+  else()
+    set(CMOCKA_LIB cmocka::cmocka)
+  endif()
+
+  # for gcc, we need to add no-clobbered compile opt to avoid warning about set-jump function
+  set(NO_CLOBBERED_WARNING "")
+  if (CMAKE_C_COMPILER_ID MATCHES "GNU")
+    set(NO_CLOBBERED_WARNING "-Wno-clobbered")
+  endif()
+
   # Core
   add_subdirectory(sdk/tests/core)
 
@@ -100,6 +116,17 @@ if (UNIT_TESTING)
   add_subdirectory(sdk/tests/iot/hub)
   add_subdirectory(sdk/tests/iot/provisioning)
 
-  # Storage
-  add_subdirectory(sdk/tests/storage/blobs)
+endif()
+
+# Fail generation when setting MOCKS ON without GCC
+if(UNIT_TESTING_MOCKS)
+  if(UNIT_TESTING)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "GNU")
+      # Fail generation when asking for MOCK without GCC
+      message(FATAL_ERROR "Unsupported Compiler Option.\nOption `UNIT_TESTING_MOCKS` is not supported on ${CMAKE_C_COMPILER_ID}. It is only supported by GNU gcc.\nRemove option `UNIT_TESTING_MOCKS` to build tests without using MOCK.")
+    endif()
+  else()
+    # Mention MOCK is ignored
+    message(WARNING "UNIT_TESTING_MOCKS will be ignored because UNIT_TESTING is not enabled.")
+  endif()
 endif()
