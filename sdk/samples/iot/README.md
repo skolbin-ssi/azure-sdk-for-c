@@ -5,6 +5,7 @@
 - [Azure IoT Samples](#azure-iot-samples)
   - [Table of Contents](#table-of-contents)
   - [Introduction](#introduction)
+  - [Github Codespaces](#github-codespaces)
   - [Prerequisites](#prerequisites)
   - [Getting Started](#getting-started)
     - [Create an Authenticated Device](#create-an-authenticated-device)
@@ -27,6 +28,7 @@
     - [IoT Hub Plug and Play Multiple Component Sample](#iot-hub-plug-and-play-multiple-component-sample)
     - [IoT Provisioning Certificate Sample](#iot-provisioning-certificate-sample)
     - [IoT Provisioning SAS Sample](#iot-provisioning-sas-sample)
+  - [Using IoT Hub with an ECC Server Certificate Chain](#using-iot-hub-with-an-ecc-server-certificate-chain)
   - [Next Steps and Additional Documentation](#next-steps-and-additional-documentation)
   - [Troubleshooting](#troubleshooting)
   - [Contributing](#contributing)
@@ -55,6 +57,21 @@ More detailed step-by-step guides on how to run an IoT Hub Client sample from sc
 - Espressif ESP32: [How to Setup and Run Azure SDK for Embedded C IoT Hub Client on ESP32](https://github.com/Azure/azure-sdk-for-c/blob/master/sdk/samples/iot/aziot_esp32/readme.md)
 
 To view scenario-focused examples using the API calls, please view the Azure IoT Client [introductory examples](https://github.com/Azure/azure-sdk-for-c/blob/master/sdk/docs/iot/README.md#examples). General [coding patterns](https://github.com/Azure/azure-sdk-for-c/blob/master/sdk/docs/iot/coding_patterns.md) that are MQTT stack agnostic are also available to view.
+
+## Github Codespaces
+
+You can use Github Codespaces to be up and running quickly! Here are the steps to follow (assuming you already have an IoT Hub set up).
+
+1. Select the "Open with Codespaces" prompt on Github and then "New codespace".
+    ![codespace](./docs/img/codespace.png)
+1. Once the Codespace is open, all required build tools, extensions, and debugging tools will be setup for you.
+1. Hit Control-Shift-B on your keyboard to build the SDK and samples.
+1. Navigate to the `cert/` directory and find the fingerprint for the certificate that was generated for you.
+1. In the Azure IoT Hub portal, add a device using Self-Signed Cert authentication. Paste the fingerprint in for Primary and Secondary. Add the device.
+1. Back in the Codespace, navigate to the "Run" tab on the left side (arrow with a bug).
+1. Select any of the samples and hit the green run button.
+1. Paste you Device ID and IoT Hub Hostname in the prompts that pop up. Hit enter and the sample should be running!
+1. Note you can use the device explorer to monitor/interact with the samples.
 
 ## Prerequisites
 
@@ -313,14 +330,29 @@ Set the following environment variables for all samples:
       $env:VCPKG_ROOT='<FULL PATH to vcpkg>'
       ```
 
-  2. Set the trust pem filepath. **Only for Windows or if required by OS.**
+  2. Set the trust pem filepath. **Only when testing on Windows or OSX.**
 
-      Download [BaltimoreCyberTrustRoot.crt.pem](https://cacerts.digicert.com/BaltimoreCyberTrustRoot.crt.pem) to `<FULL PATH TO azure-sdk-for-c>\sdk\samples\iot\`. Confirm the downloaded certificate uses the correct file name and file extension.
+      _Important:_ We recommend using a managed trusted store for production deployments. Paho/OpenSSL on Windows is meant for testing purposes only.
+            
+      Create a PEM certificate file based store by concatenating the following files:
+      
+      * RSA Certificate Authority Roots:
 
-      Windows (PowerShell):
+        - [Baltimore CyberTrust Root](https://cacerts.digicert.com/BaltimoreCyberTrustRoot.crt.pem)
+        - [DigiCert Global Root G2](https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem)
+        - [Microsoft RSA Root Certificate Authority 2017](https://www.microsoft.com/pkiops/certs/Microsoft%20RSA%20Root%20Certificate%20Authority%202017.crt)
+
+      * ECC Certificate Authority Roots
+        - [DigiCert Global Root G3](https://cacerts.digicert.com/DigiCertGlobalRootG3.crt.pem)
+        - [Microsoft ECC Root Certificate Authority 2017](https://www.microsoft.com/pkiops/certs/Microsoft%20ECC%20Root%20Certificate%20Authority%202017.crt)
+      
+      Make sure the files are in PEM format. If they are not, use `openssl x509 -inform DER -outform PEM -in my_certificate.crt -out my_certificate.pem` to convert them to PEM format. Concatenate all the files into CAStore.pem.
+      Configure the AZ_IOT_DEVICE_X509_TRUST_PEM_FILE_PATH to point to this PEM file.
+
+       Windows (PowerShell):
 
       ```powershell
-      $env:AZ_IOT_DEVICE_X509_TRUST_PEM_FILE_PATH='<FULL PATH TO azure-sdk-for-c>\sdk\samples\iot\BaltimoreCyberTrustRoot.crt.pem'
+      $env:AZ_IOT_DEVICE_X509_TRUST_PEM_FILE_PATH='<FULL PATH TO>\CAStore.pem'
       ```
 
 #### IoT Hub X.509 Certificate Samples
@@ -822,6 +854,15 @@ This section provides an overview of the different samples available to run and 
 - *Executable:* `paho_iot_provisioning_sas_sample`
 
   This [sample](https://github.com/Azure/azure-sdk-for-c/blob/master/sdk/samples/iot/paho_iot_provisioning_sas_sample.c) registers a device with the Azure IoT Device Provisioning Service. It will wait to receive the registration status before disconnecting. SAS authentication is used.
+
+## Using IoT Hub with an ECC Server Certificate Chain
+To work with the new Azure Cloud ECC server certificate chain, the TLS stack must be configured to prevent RSA cipher-suites from being advertised, as described [here](https://docs.microsoft.com/azure/iot-hub/iot-hub-tls-support#elliptic-curve-cryptography-ecc-server-tls-certificate-preview).
+
+When using Paho MQTT for C, modify the samples by adding the following TLS option:
+
+```C
+mqtt_ssl_options.enabledCipherSuites = "ECDH+ECDSA+HIGH";
+```
 
 ## Next Steps and Additional Documentation
 
